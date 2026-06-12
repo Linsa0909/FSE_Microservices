@@ -24,7 +24,7 @@ func New(s *store.ConfigStore) *Handler {
 // --- 请求体 ---
 
 type setKeyBody struct {
-	Value string `json:"value" binding:"required"`
+	Value string `json:"value"`
 }
 
 // ListAll handles GET /api/configs — returns all config groups.

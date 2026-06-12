@@ -6,7 +6,7 @@
         <div class="cl-th-cell svc">Service / Env</div>
         <div class="cl-th-cell ver">Ver</div>
         <div class="cl-th-cell preview">Config Preview</div>
-        <div class="cl-th-cell changes">Changes</div>
+        <div class="cl-th-cell changes">变更</div>
         <div class="cl-th-cell time">Last Published</div>
         <div class="cl-th-cell status">Status</div>
       </div>
@@ -34,8 +34,8 @@
             <circle cx="60" cy="60" r="2" fill="#9CA3AF"/>
           </svg>
         </div>
-        <p class="empty-title">No config data</p>
-        <p class="empty-desc">Backend hasn't returned any config groups yet</p>
+        <p class="empty-title">暂无配置数据</p>
+        <p class="empty-desc">后端尚未返回配置组，请确认配置中心已启动</p>
       </div>
 
       <!-- Rows -->
@@ -105,7 +105,7 @@ function countDiffStr(row) {
   if (c.added) parts.push(`+${c.added}`)
   if (c.modified) parts.push(`~${c.modified}`)
   if (c.deleted) parts.push(`-${c.deleted}`)
-  return `${c.total} change${c.total > 1 ? 's' : ''}`
+  return `${c.total} 项变更`
 }
 
 function previewText(row) {
@@ -121,12 +121,12 @@ function formatRelative(t) {
   if (!t) return '—'
   const diff = Date.now() - new Date(t).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins} 分钟前`
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return `${hours} 小时前`
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return `${days} 天前`
 }
 </script>
 

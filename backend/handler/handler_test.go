@@ -131,34 +131,82 @@ func TestHandler_SetKey_Success(t *testing.T) {
 	}
 }
 
-func TestHandler_SetKey_MissingBody(t *testing.T) {
-	r, _ := setup()
-	req := httptest.NewRequest(http.MethodPut, "/api/configs/svc/dev/keys/mykey", strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want 400 for missing value, got %d", w.Code)
-	}
-}
-
-func TestHandler_SetKey_URLEncodedKey(t *testing.T) {
+func TestHandler_SetKey_EmptyValue(t *testing.T) {
 	r, cs := setup()
-	// key with dots and hyphens
-	body := `{"value":"v"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/configs/svc/dev/keys/db.url-v2_test", strings.NewReader(body))
+	body := `{"value":""}`
+	req := httptest.NewRequest(http.MethodPut, "/api/configs/svc/dev/keys/emptykey", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("want 200, got %d", w.Code)
+		t.Fatalf("want 200 for empty value, got %d: %s", w.Code, w.Body.String())
 	}
 
 	g := cs.Get("svc", "dev")
-	if g.DraftData["db.url-v2_test"] != "v" {
-		t.Errorf("draft key = %q, want v", g.DraftData["db.url-v2_test"])
+	if g == nil {
+		t.Fatal("config group should exist")
+	}
+	val, ok := g.DraftData["emptykey"]
+	if !ok {
+		t.Fatal("emptykey should exist in DraftData")
+	}
+	if val != "" {
+		t.Errorf("emptykey value = %q, want empty string", val)
+	}
+}
+
+func TestHandler_SetKey_MissingBody(t *testing.T) {
+	r, _ := setup()
+	// Use invalid JSON (not a valid object) to verify bad request handling
+	req := httptest.NewRequest(http.MethodPut, "/api/configs/svc/dev/keys/mykey", strings.NewReader(`not json`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for invalid JSON body, got %d", w.Code)
+	}
+}
+
+func TestHandler_SetKey_URLEncodedKey(t *testing.T) {
+	r, cs := setup()
+
+	tests := []struct {
+		name  string
+		key   string // the key as it appears in the URL path
+		value string
+	}{
+		{"dots and hyphens", "db.url-v2_test", "v1"},
+		{"at sign special char", "config.key@v1.0", "v2"},
+		{"Chinese characters", "配置项.名称", "中文值"},
+		{"numeric key", "port.8080", "8080"},
+		{"single char", "x", "y"},
+		{"deep path-like", "a.b.c.d.e", "deep"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"value":"` + tt.value + `"}`
+			req := httptest.NewRequest(http.MethodPut,
+				"/api/configs/svc/dev/keys/"+tt.key,
+				strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+			}
+
+			g := cs.Get("svc", "dev")
+			if g == nil {
+				t.Fatal("config group should exist")
+			}
+			if g.DraftData[tt.key] != tt.value {
+				t.Errorf("DraftData[%q] = %q, want %q", tt.key, g.DraftData[tt.key], tt.value)
+			}
+		})
 	}
 }
 
@@ -212,8 +260,8 @@ func TestHandler_Publish(t *testing.T) {
 	}
 
 	g := cs.Get("svc", "dev")
-	if g.PublishedVersion != 1 {
-		t.Errorf("version = %d, want 1", g.PublishedVersion)
+	if g.PublishedVersion != "1.0.0" {
+		t.Errorf("version = %q, want %q", g.PublishedVersion, "1.0.0")
 	}
 	if g.PublishedData["k"] != "v" {
 		t.Errorf("published key = %q, want v", g.PublishedData["k"])
@@ -329,8 +377,8 @@ func TestHandler_FullFlow_EditPublishVerify(t *testing.T) {
 	}
 
 	// Step 4: Verify PublishedData now has the config
-	if g.PublishedVersion != 1 {
-		t.Errorf("version = %d, want 1", g.PublishedVersion)
+	if g.PublishedVersion != "1.0.0" {
+		t.Errorf("version = %q, want %q", g.PublishedVersion, "1.0.0")
 	}
 	if g.PublishedData["db.url"] != "localhost" {
 		t.Errorf("PublishedData[db.url] = %q, want localhost", g.PublishedData["db.url"])
@@ -365,7 +413,7 @@ func TestHandler_FullFlow_EditPublishVerify(t *testing.T) {
 // ===================== Concurrent safety =====================
 
 func TestHandler_ConcurrentWrites(t *testing.T) {
-	r, _ := setup()
+	r, cs := setup()
 	var wg sync.WaitGroup
 	errCh := make(chan error, 10)
 
@@ -387,6 +435,23 @@ func TestHandler_ConcurrentWrites(t *testing.T) {
 
 	wg.Wait()
 	close(errCh)
+
+	// Assert all 10 keys were written successfully with correct values
+	g := cs.Get("svc", "dev")
+	if g == nil {
+		t.Fatal("config group should exist after concurrent writes")
+	}
+	draftCount := len(g.DraftData)
+	if draftCount != 10 {
+		t.Errorf("want 10 keys in DraftData after concurrent writes, got %d", draftCount)
+	}
+	for i := 0; i < 10; i++ {
+		key := "k" + string(rune('0'+i))
+		expectedVal := "v" + string(rune('0'+i))
+		if g.DraftData[key] != expectedVal {
+			t.Errorf("DraftData[%q] = %q, want %q", key, g.DraftData[key], expectedVal)
+		}
+	}
 
 	// Concurrent publish should also work
 	req := httptest.NewRequest(http.MethodPost, "/api/configs/svc/dev/publish", nil)

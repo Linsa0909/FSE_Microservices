@@ -11,7 +11,7 @@
             <span class="dp-env">{{ config?.env }}</span>
             <StatusBadge :hasDraft="hasDraft" />
           </div>
-          <button class="dp-close" @click="$emit('close')" title="Close">
+          <button class="dp-close" @click="$emit('close')" title="关闭">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
@@ -25,16 +25,16 @@
       <div class="dp-body">
         <!-- Diff summary -->
         <div class="dp-summary" v-if="diffCount > 0">
-          <span class="dp-summary-badge">{{ diffCount }} change{{ diffCount > 1 ? 's' : '' }} pending</span>
+          <span class="dp-summary-badge">{{ diffCount }} 项变更待发布</span>
         </div>
 
         <!-- Diff table -->
         <div class="dp-table">
           <div class="dp-th">
-            <span class="dp-th-cell key">Key</span>
-            <span class="dp-th-cell pub">Published</span>
-            <span class="dp-th-cell draft">Draft</span>
-            <span class="dp-th-cell act">Actions</span>
+            <span class="dp-th-cell key">键 (Key)</span>
+            <span class="dp-th-cell pub">已发布</span>
+            <span class="dp-th-cell draft">草稿</span>
+            <span class="dp-th-cell act">操作</span>
           </div>
 
           <div v-for="diff in diffRows" :key="diff.key" class="dp-row" :class="diff.rowClass">
@@ -50,10 +50,10 @@
               </span>
             </div>
             <div class="dp-cell act">
-              <button class="dp-act-btn" @click="startEdit(diff)" title="Edit">
+              <button class="dp-act-btn" @click="startEdit(diff)" title="编辑">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10 1.5l2.5 2.5L4.5 12H2v-2.5L10 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <button class="dp-act-btn danger" @click="confirmDelete(diff.key)" title="Delete">
+              <button class="dp-act-btn danger" @click="confirmDelete(diff.key)" title="删除">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V2.5h4V4M3 4v7.5h8V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
@@ -69,7 +69,7 @@
               <input v-model="newValue" class="dp-inline-input" placeholder="value" @keydown.enter="addKey" />
             </div>
             <div class="dp-cell act">
-              <button class="dp-act-btn primary" @click="addKey" title="Add" :disabled="!newKey">
+              <button class="dp-act-btn primary" @click="addKey" title="添加" :disabled="!newKey">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
               </button>
             </div>
@@ -82,9 +82,9 @@
 
       <!-- Footer -->
       <div class="dp-footer">
-        <button class="dp-footer-cancel" @click="$emit('close')">Cancel</button>
+        <button class="dp-footer-cancel" @click="$emit('close')">取消</button>
         <button class="dp-footer-publish" :disabled="!hasDraft" @click="doPublish">
-          {{ hasDraft ? `Publish (${diffCount} changes)` : 'Up to date' }}
+          {{ hasDraft ? `发布 (${diffCount} 项变更)` : '已是最新版本' }}
         </button>
       </div>
     </div>
@@ -107,7 +107,7 @@
 
     <div style="padding:16px 20px">
       <div class="dp-summary" v-if="diffCount > 0" style="margin-bottom:12px">
-        <span class="dp-summary-badge">{{ diffCount }} change{{ diffCount > 1 ? 's' : '' }} pending</span>
+        <span class="dp-summary-badge">{{ diffCount }} 项变更待发布</span>
       </div>
 
       <div class="dp-table">
@@ -131,10 +131,10 @@
             </span>
           </div>
           <div class="dp-cell act">
-            <button class="dp-act-btn" @click="startEdit(diff)" title="Edit">
+            <button class="dp-act-btn" @click="startEdit(diff)" title="编辑">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10 1.5l2.5 2.5L4.5 12H2v-2.5L10 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button class="dp-act-btn danger" @click="confirmDelete(diff.key)" title="Delete">
+            <button class="dp-act-btn danger" @click="confirmDelete(diff.key)" title="删除">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V2.5h4V4M3 4v7.5h8V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
@@ -149,7 +149,7 @@
             <input v-model="newValue" class="dp-inline-input" placeholder="value" @keydown.enter="addKey" />
           </div>
           <div class="dp-cell act">
-            <button class="dp-act-btn primary" @click="addKey" title="Add" :disabled="!newKey">
+            <button class="dp-act-btn primary" @click="addKey" title="添加" :disabled="!newKey">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>
           </div>
@@ -161,9 +161,9 @@
 
     <template #footer>
       <div style="display:flex;justify-content:flex-end;gap:8px">
-        <el-button @click="visible=false">Cancel</el-button>
+        <el-button @click="visible=false">取消</el-button>
         <el-button type="primary" :disabled="!hasDraft" @click="doPublish">
-          {{ hasDraft ? `Publish (${diffCount} changes)` : 'Up to date' }}
+          {{ hasDraft ? `发布 (${diffCount} 项变更)` : '已是最新版本' }}
         </el-button>
       </div>
     </template>
@@ -234,7 +234,7 @@ async function loadDetail() {
     config.value = data.config
     logs.value = data.logs || []
   } catch (e) {
-    ElMessage.error('Failed to load config detail')
+    ElMessage.error('加载配置详情失败')
   }
 }
 
@@ -260,9 +260,9 @@ async function saveInline(diff) {
   try {
     await setKey(props.service, props.env, diff.key, val)
     await loadDetail()
-    ElMessage.success('Saved')
+    ElMessage.success('已保存')
   } catch (e) {
-    ElMessage.error('Save failed')
+    ElMessage.error('保存失败')
   }
 }
 
@@ -280,22 +280,22 @@ async function addKey() {
     newKey.value = ''
     newValue.value = ''
     await loadDetail()
-    ElMessage.success('Added')
+    ElMessage.success('已添加')
   } catch (e) {
-    ElMessage.error('Add failed')
+    ElMessage.error('添加失败')
   }
 }
 
 async function confirmDelete(key) {
   try {
-    await ElMessageBox.confirm(`Delete "${key}"?`, 'Confirm delete', { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' })
+    await ElMessageBox.confirm(`确定删除 "${key}"？`, '确认删除', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
   } catch { return }
   try {
     await deleteKey(props.service, props.env, key)
     await loadDetail()
-    ElMessage.success('Deleted')
+    ElMessage.success('已删除')
   } catch (e) {
-    ElMessage.error('Delete failed')
+    ElMessage.error('删除失败')
   }
 }
 
@@ -303,10 +303,10 @@ async function doPublish() {
   try {
     await publishConfig(props.service, props.env)
     await loadDetail()
-    ElMessage.success('Published')
+    ElMessage.success('发布成功')
     emit('published')
   } catch (e) {
-    ElMessage.error('Publish failed')
+    ElMessage.error('发布失败')
   }
 }
 </script>

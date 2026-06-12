@@ -7,7 +7,7 @@
           <circle cx="7" cy="7" r="4.5" stroke="#9ca3af" stroke-width="1.5"/>
           <path d="M10.5 10.5L14 14" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <input :value="search" class="search-input" type="text" placeholder="Search services..."
+        <input :value="search" class="search-input" type="text" placeholder="搜索服务名..."
           @input="$emit('update:search', $event.target.value)" />
       </div>
     </div>
@@ -15,7 +15,7 @@
     <div class="cb-right">
       <!-- Env filter -->
       <select :value="env" class="cb-select" @change="$emit('update:env', $event.target.value)">
-        <option value="">All envs</option>
+        <option value="">全部环境</option>
         <option value="dev">dev</option>
         <option value="test">test</option>
         <option value="prod">prod</option>
@@ -23,25 +23,25 @@
 
       <!-- Status filter -->
       <select :value="status" class="cb-select" @change="$emit('update:status', $event.target.value)">
-        <option value="">All status</option>
-        <option value="published">Published</option>
-        <option value="pending">Pending publish</option>
+        <option value="">全部状态</option>
+        <option value="published">已发布</option>
+        <option value="pending">待发布</option>
       </select>
 
       <div class="cb-sep"></div>
 
       <!-- Refresh info -->
       <span class="cb-refresh-info">
-        Every 5s · <span class="cb-time">{{ lastRefresh }}</span>
+        每 5 秒自动刷新 · <span class="cb-time">{{ lastRefresh }}</span>
       </span>
-      <button class="cb-refresh-btn" @click="$emit('manual-refresh')" title="Refresh now">
+      <button class="cb-refresh-btn" @click="$emit('manual-refresh')" title="手动刷新">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" :class="{ spinning: refreshing }">
           <path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 100 16 7.96 7.96 0 005.65-2.35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </button>
 
       <!-- Help -->
-      <button class="cb-help-btn" @click="showHelp = true" title="Help">
+      <button class="cb-help-btn" @click="showHelp = true" title="帮助">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
           <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
           <path d="M6.5 6a1.5 1.5 0 012.8-.7M8 9.5V12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
@@ -65,8 +65,8 @@
         <p>在详情面板点击每行右侧的 <strong>垃圾桶图标</strong> → 确认后删除。</p>
 
         <h4>🚀 发布配置</h4>
-        <p>编辑完成后 → 点击底部 <strong>Publish</strong> 按钮 → DraftData 同步到 PublishedData → Version +1。</p>
-        <p class="help-note">未做任何修改时 Publish 按钮灰色禁用；有未发布变更时高亮显示。</p>
+        <p>编辑完成后 → 点击底部 <strong>发布</strong> 按钮 → 草稿同步到已发布配置 → 版本号 +1。</p>
+        <p class="help-note">未做任何修改时发布按钮灰色禁用；有未发布变更时高亮显示。</p>
 
         <h4>🔄 自动刷新</h4>
         <p>页面每 <strong>5 秒</strong>自动拉取后端最新数据，顶部栏显示上次刷新时间。</p>

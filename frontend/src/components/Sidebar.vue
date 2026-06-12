@@ -5,7 +5,7 @@
         <rect width="22" height="22" rx="5" fill="#5e6ad2"/>
         <path d="M6 11l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span class="sb-title">Config Center</span>
+      <span class="sb-title">配置中心</span>
     </div>
 
     <div class="sb-nav">
@@ -15,14 +15,14 @@
         :class="{ active: !selectedEnv && !selectedStatus }"
         @click="$emit('select-env', '') || $emit('select-status', '')"
       >
-        <span class="sb-label">All configs</span>
+        <span class="sb-label">全部配置</span>
         <span class="sb-count">{{ totalCount }}</span>
       </button>
 
       <div class="sb-divider"></div>
 
       <!-- Environments -->
-      <div class="sb-section-title">Environments</div>
+      <div class="sb-section-title">环境</div>
       <button
         v-for="env in envs"
         :key="env.key"
@@ -37,7 +37,7 @@
       <div class="sb-divider"></div>
 
       <!-- Status -->
-      <div class="sb-section-title">Status</div>
+      <div class="sb-section-title">状态</div>
       <button
         v-for="st in statuses"
         :key="st.key"
@@ -82,8 +82,8 @@ const statuses = computed(() => {
     else pub++
   }
   return [
-    { key: 'published', label: 'Published', count: pub },
-    { key: 'pending', label: 'Pending publish', count: pen },
+    { key: 'published', label: '已发布', count: pub },
+    { key: 'pending', label: '待发布', count: pen },
   ]
 })
 </script>

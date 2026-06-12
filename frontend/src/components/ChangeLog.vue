@@ -1,7 +1,7 @@
 <template>
   <div class="cl-wrapper">
     <div class="cl-header">
-      <h4>Activity</h4>
+      <h4>变更记录</h4>
       <span class="cl-count">{{ logs.length }}</span>
     </div>
     <div class="cl-list" v-if="logs.length > 0">
@@ -14,7 +14,7 @@
         <span class="cl-time">{{ formatTime(log.time) }}</span>
       </div>
     </div>
-    <div v-else class="cl-empty">No activity yet</div>
+    <div v-else class="cl-empty">暂无变更记录</div>
   </div>
 </template>
 

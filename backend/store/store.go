@@ -5,6 +5,8 @@ package store
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,9 +15,9 @@ import (
 type ConfigGroup struct {
 	Service          string            `json:"service"`
 	Env              string            `json:"env"`
-	PublishedVersion int               `json:"publishedVersion"`
-	PublishedData    map[string]string `json:"publishedData"` // 线上生效的配置
-	DraftData        map[string]string `json:"draftData"`     // 编辑中、未发布的配置
+	PublishedVersion string            `json:"publishedVersion"` // "1.0.0" 三位版本号
+	PublishedData    map[string]string `json:"publishedData"`    // 线上生效的配置
+	DraftData        map[string]string `json:"draftData"`        // 编辑中、未发布的配置
 	LastPublishedAt  time.Time         `json:"lastPublishedAt"`
 }
 
@@ -24,7 +26,7 @@ type ChangeRecord struct {
 	Time     time.Time `json:"time"`
 	Action   string    `json:"action"` // "新增" / "修改" / "删除" / "发布"
 	Key      string    `json:"key"`
-	Version  int       `json:"version"`
+	Version  string    `json:"version"`  // 当时版本号, e.g. "1.0.2"
 	Operator string    `json:"operator"` // MVP 固定 "admin"
 }
 
@@ -60,6 +62,22 @@ func CloneMap(src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+// BumpVersion 递增补丁版本号: "1.0.0" → "1.0.1"
+func BumpVersion(v string) string {
+	if v == "" {
+		return "1.0.0"
+	}
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return "1.0.0"
+	}
+	patch, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return "1.0.0"
+	}
+	return fmt.Sprintf("%s.%s.%d", parts[0], parts[1], patch+1)
 }
 
 // --- ConfigStore 方法 ---
@@ -130,11 +148,11 @@ func (cs *ConfigStore) DeleteKey(service, env, key string) {
 	})
 }
 
-// Publish 发布配置：DraftData DeepCopy → PublishedData，Version +1
+// Publish 发布配置：DraftData DeepCopy → PublishedData，递增补丁版本号
 func (cs *ConfigStore) Publish(service, env string) {
 	g := cs.GetOrCreate(service, env)
 	g.PublishedData = CloneMap(g.DraftData)
-	g.PublishedVersion++
+	g.PublishedVersion = BumpVersion(g.PublishedVersion)
 	g.LastPublishedAt = time.Now()
 
 	cs.addLog(service, env, ChangeRecord{

@@ -10,6 +10,7 @@
 | 状态 | 数量 |
 |------|------|
 | ✅ Closed | 7 (bug) + 13 (lint) |
+| ✅ Done | 3 (opt) |
 | 🔧 Fixing | 0 |
 | 👀 Known | 0 |
 
@@ -26,6 +27,7 @@
 | BUG-005 | ✅ Closed | `demo-service/main.go` | 2026-06-12 | 后端未启动时 `go run .` 直接 `log.Fatal` 退出 | pullConfig 无重试机制，一次失败就调用 `log.Fatalf` | pullConfig 加重试循环 (5次, 间隔1s)，main() 中 `log.Fatalf` 改为 `log.Printf` 降级启动 | 后端不启动时 demo 重试 5 次后自动以默认端口 3000 启动 | `fix: demo-service pullConfig 加重试` |
 | BUG-006 | ✅ Closed | `start.sh` | 2026-06-12 | `bash start.sh` 报 `go: command not found`，后端和微服务均未启动 | WSL 中 Go 装在了 `/root/go/bin`，不在默认 PATH 中 | start.sh 开头增加 Go PATH 自动探测（`/root/go/bin`、`/usr/local/go/bin` 等 4 个常见路径 + `command -v` 校验 + 报错提示） | `bash start.sh` 找到 Go 并正常启动后端+微服务 | `fix: start.sh Go PATH auto-detect` |
 | BUG-007 | ✅ Closed | `frontend/ConfigDrawer.vue` | 2026-06-12 | 点击表格行 → 右侧抽屉/面板完全空白，无任何按钮，无法操作 | `<script>` (非setup) 块定义的 `DetailBody` 子组件模板中使用了 `<ChangeLog>`，但 `ChangeLog` 只在 `<script setup>` 中 import，子组件不可见，Vue 渲染失败 | 删除非 setup 的 `<script>` 块，把 `DetailBody` 内联到主 `<template>` 中（panel + drawer 各一份） | `npm run build` 成功，点击行后抽屉显示双列对比 + 编辑/新增/删除/发布按钮 + 变更记录 | `fix: BUG-007 ConfigDrawer 重写` |
+| BUG-008 | ✅ Closed | `backend/handler` | 2026-06-12 | `PUT /keys/:key` 设置 `value=""` 返回 400 `{"error":"value is required"}` | `setKeyBody.Value` 有 `binding:"required"` 标签，Gin 将空字符串视为零值拒绝 | 移除 `binding:"required"`，更新 `TestHandler_SetKey_MissingBody` 从 `{}` 改为无效 JSON 确保错误分支仍被覆盖 | `go test ./... -count=1` → 新增 `TestHandler_SetKey_EmptyValue` PASS | `test: 增强 API 并发和边界测试` |
 
 ---
 
@@ -34,6 +36,8 @@
 | ID | 状态 | 模块 | 发现 | 优化内容 | 效果 | 验证 | Commit |
 |----|------|------|------|---------|------|------|--------|
 | OPT-001 | ✅ Done | `frontend/TopBar.vue` | 2026-06-12 | 缺少操作帮助入口 | 顶部栏右侧新增 ? Help 按钮 + el-dialog 操作指南 (6章节) | `npm run build` OK | `fix: BUG-007 + OPT-001` |
+| OPT-002 | ✅ Done | `backend/store/` | 2026-06-12 | 版本号为单整数 | PublishedVersion int→string "1.0.0"三位, 新增 BumpVersion() | 24 tests PASS | `feat: semver + 汉化` |
+| OPT-003 | ✅ Done | `frontend/` | 2026-06-12 | 界面文本为英文 | StatusBadge/Sidebar/TopBar/ConfigDrawer/ConfigTable/ChangeLog 全部汉化 | `npm run build` OK | `feat: semver + 汉化` |
 
 ## Lint 记录
 
@@ -69,3 +73,4 @@
 | 2026-06-12 | BUG-005: demo-service pullConfig 加重试 (5次/1s), 后端未就绪时降级启动 |
 | 2026-06-12 | BUG-006: start.sh Go PATH auto-detect, WSL 兼容修复 |
 | 2026-06-12 | BUG-007: ConfigDrawer 重写 (去掉 DetailBody 间接层) + OPT-001: 帮助弹窗 |
+| 2026-06-12 | OPT-002: 版本号改为 vX.Y.Z 三位格式 + OPT-003: 前端界面全面汉化 |

@@ -32,20 +32,37 @@ func TestPublishVersionIncrease(t *testing.T) {
 	cs.Unlock()
 
 	g := cs.Get("test-svc", "dev")
-	if g.PublishedVersion != 1 {
-		t.Errorf("version = %d, want 1", g.PublishedVersion)
+	if g.PublishedVersion != "1.0.0" {
+		t.Errorf("version = %q, want %q", g.PublishedVersion, "1.0.0")
 	}
 	if g.PublishedData["k"] != "v1" {
 		t.Errorf("PublishedData[k] = %q, want %q", g.PublishedData["k"], "v1")
 	}
 
-	// Publish again without changes — version should still increase
+	// Publish again — patch version should increase
 	cs.Lock()
 	cs.Publish("test-svc", "dev")
 	cs.Unlock()
 
-	if g.PublishedVersion != 2 {
-		t.Errorf("version after second publish = %d, want 2", g.PublishedVersion)
+	if g.PublishedVersion != "1.0.1" {
+		t.Errorf("version after second publish = %q, want %q", g.PublishedVersion, "1.0.1")
+	}
+}
+
+func TestBumpVersion(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"", "1.0.0"},
+		{"1.0.0", "1.0.1"},
+		{"2.3.9", "2.3.10"},
+		{"bad", "1.0.0"},
+	}
+	for _, tt := range tests {
+		got := BumpVersion(tt.in)
+		if got != tt.want {
+			t.Errorf("BumpVersion(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }
 

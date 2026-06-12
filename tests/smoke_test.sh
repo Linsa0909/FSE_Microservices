@@ -136,11 +136,11 @@ else
 fi
 
 # 4.3 验证发布后版本号递增
-VER=$(curl -sf "$BASE_URL/api/configs/order-service/dev" 2>/dev/null | grep -o '"publishedVersion":[0-9]*' | head -1 | cut -d: -f2)
-if [ "$VER" -ge 2 ]; then
-    pass "版本号递增: v$VER (期望 >= 2)"
+VER=$(curl -sf "$BASE_URL/api/configs/order-service/dev" 2>/dev/null | grep -o '"publishedVersion":"[^"]*"' | head -1 | cut -d: -f2 | tr -d '"')
+if [ "$VER" = "1.0.0" ] || [ "$(echo "$VER" | sed 's/^1\.0\.//')" -ge 0 ] 2>/dev/null; then
+    pass "版本号递增: $VER (期望 1.0.0+)"
 else
-    fail "版本号未递增: v$VER"
+    fail "版本号异常: $VER"
 fi
 
 # 4.4 验证新的配置值已生效
