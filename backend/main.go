@@ -47,6 +47,15 @@ func initSeedData(cs *store.ConfigStore) {
 				"log.level":   "debug",
 			},
 		},
+		{
+			service: "user-service",
+			env:     "prod",
+			data: map[string]string{
+				"db.url":      "prod-db.internal:3306",
+				"server.port": "3001",
+				"log.level":   "info",
+			},
+		},
 	}
 
 	for _, s := range seeds {
