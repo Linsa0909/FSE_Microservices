@@ -93,12 +93,14 @@ setInterval(5000):
 type ConfigGroup struct {
     Service          string            // 服务名
     Env              string            // 环境 (dev/test/prod)
-    PublishedVersion int               // 已发布版本号
+    PublishedVersion string            // 已发布版本号, e.g. "1.0.0" (semver)
     PublishedData    map[string]string // 线上生效的配置
     DraftData        map[string]string // 编辑中的配置
     LastPublishedAt  time.Time         // 最后发布时间
 }
 ```
+
+**版本号规则**：采用 `vX.Y.Z` 三位语义化版本格式。首次发布为 `"1.0.0"`，每次发布时通过 `BumpVersion()` 递增补丁号 (`"1.0.0"` → `"1.0.1"` → `"1.0.2"`)。大版本 (`X`) 和中版本 (`Y`) 由主流程或人工调整。
 
 **状态判定**（无 Status 字段，由数据驱动）：
 - `DraftData == PublishedData` → PUBLISHED
@@ -111,7 +113,7 @@ type ChangeRecord struct {
     Time     time.Time // 操作时间
     Action   string    // 新增/修改/删除/发布
     Key      string    // 配置项 Key
-    Version  int       // 当时版本号
+    Version  string    // 当时版本号, e.g. "1.0.2"
     Operator string    // 操作人 (MVP 固定 "admin")
 }
 ```
