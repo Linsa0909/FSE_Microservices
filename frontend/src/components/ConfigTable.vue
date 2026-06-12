@@ -109,12 +109,53 @@ function countDiffStr(row) {
 }
 
 function previewText(row) {
-  const data = row.publishedData || {}
-  const entries = Object.entries(data).slice(0, 3)
-  const parts = entries.map(([k, v]) => `${k}=${v}`)
-  let preview = parts.join(', ')
-  if (Object.keys(data).length > 3) preview += ' ...'
-  return preview || '—'
+  const pub = row.publishedData || {}
+  const draft = row.draftData || {}
+  const diff = countDiff(row)
+
+  if (diff.total > 0) {
+    const changes = importantChanges(pub, draft).slice(0, 2)
+    const suffix = changes.length ? ` · ${changes.join(' · ')}` : ''
+    return `${diff.total} 项待发布${suffix}`
+  }
+
+  const summary = importantEntries(pub).slice(0, 3)
+  if (summary.length > 0) return summary.join(' · ')
+
+  const total = Object.keys(pub).length
+  if (total === 0) return '暂无配置项'
+  return `${total} 个配置项`
+}
+
+const KEY_LABELS = [
+  { keys: ['db.url', 'datasource.url', 'database.url'], label: 'DB' },
+  { keys: ['server.port', 'port'], label: 'Port' },
+  { keys: ['log.level', 'logging.level'], label: 'Log' },
+  { keys: ['redis.host', 'redis.url'], label: 'Redis' },
+  { keys: ['nacos.addr', 'config.addr'], label: 'Config' },
+]
+
+function importantEntries(data) {
+  return KEY_LABELS.flatMap(({ keys, label }) => {
+    const key = keys.find(k => hasOwn(data, k))
+    return key ? [`${label} ${data[key]}`] : []
+  })
+}
+
+function importantChanges(pub, draft) {
+  return KEY_LABELS.flatMap(({ keys, label }) => {
+    const key = keys.find(k => hasOwn(pub, k) || hasOwn(draft, k))
+    if (!key || pub[key] === draft[key]) return []
+    return [`${label} ${valueText(pub[key])} → ${valueText(draft[key])}`]
+  })
+}
+
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key)
+}
+
+function valueText(value) {
+  return value === undefined ? '已删除' : value || '空值'
 }
 
 function formatRelative(t) {
