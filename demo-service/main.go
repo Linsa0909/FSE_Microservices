@@ -15,6 +15,8 @@ type ConfigClient struct {
 	env        string
 	httpClient *http.Client
 	config     map[string]string
+	maxRetries int
+	retryDelay time.Duration
 }
 
 // NewConfigClient 创建配置客户端
@@ -25,33 +27,53 @@ func NewConfigClient(baseURL, service, env string) *ConfigClient {
 		env:        env,
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		config:     make(map[string]string),
+		maxRetries: 5,
+		retryDelay: time.Second,
 	}
 }
 
-// pullConfig 拉取线上配置
+// pullConfig 拉取线上配置（含重试机制，容忍后端未就绪）
 func (c *ConfigClient) pullConfig() error {
 	url := fmt.Sprintf("%s/api/configs/%s/%s/published", c.baseURL, c.service, c.env)
 	log.Printf("[ConfigClient] 正在拉取配置: %s", url)
 
-	resp, err := c.httpClient.Get(url)
-	if err != nil {
-		return fmt.Errorf("拉取配置失败: %w", err)
-	}
-	defer resp.Body.Close()
+	var lastErr error
+	for attempt := 1; attempt <= c.maxRetries; attempt++ {
+		resp, err := c.httpClient.Get(url)
+		if err != nil {
+			lastErr = fmt.Errorf("拉取配置失败: %w", err)
+			if attempt < c.maxRetries {
+				log.Printf("[ConfigClient] 第 %d/%d 次尝试失败: %v, %s 后重试...", attempt, c.maxRetries, err, c.retryDelay)
+				time.Sleep(c.retryDelay)
+				continue
+			}
+			return lastErr
+		}
 
-	var result struct {
-		Config map[string]string `json:"config"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("解析配置失败: %w", err)
-	}
+		result := struct {
+			Config map[string]string `json:"config"`
+		}{}
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
 
-	c.config = result.Config
-	log.Printf("[ConfigClient] 拉取成功: %d 个配置项", len(c.config))
-	for k, v := range c.config {
-		log.Printf("  %s = %s", k, v)
+		if err != nil {
+			lastErr = fmt.Errorf("解析配置失败: %w", err)
+			if attempt < c.maxRetries {
+				log.Printf("[ConfigClient] 第 %d/%d 次尝试解析失败: %v, %s 后重试...", attempt, c.maxRetries, err, c.retryDelay)
+				time.Sleep(c.retryDelay)
+				continue
+			}
+			return lastErr
+		}
+
+		c.config = result.Config
+		log.Printf("[ConfigClient] 拉取成功 (第 %d 次尝试): %d 个配置项", attempt, len(c.config))
+		for k, v := range c.config {
+			log.Printf("  %s = %s", k, v)
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("拉取配置失败 (已重试 %d 次): %w", c.maxRetries, lastErr)
 }
 
 // GetConfig 获取本地缓存的配置
@@ -65,7 +87,7 @@ func main() {
 	// 启动时拉取配置
 	log.Println("[demo-service] 启动中，拉取配置...")
 	if err := client.pullConfig(); err != nil {
-		log.Fatalf("[demo-service] ❌ %v", err)
+		log.Printf("[demo-service] ⚠️ %v — 使用默认端口 3000", err)
 	}
 
 	cfg := client.GetConfig()
