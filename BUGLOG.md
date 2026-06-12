@@ -25,9 +25,21 @@
 | BUG-004 | ✅ Closed | `infra/apt` | 2026-06-12 | `apt-get install golang-go` 失败 | 容器文件系统部分只读 | 手动下载 Go `go1.22.5.linux-amd64.tar.gz` 到 `/root/go` | `go version` → `go1.22.5` | `feat: init backend` |
 
 ---
+## 测试记录
+
+| 日期 | 测试层级 | 用例数 | 结果 | 备注 |
+|------|---------|--------|------|------|
+| 2026-06-12 | UT (store) | 7 | ✅ PASS | Draft隔离/Version递增/DeepCopy/HasDraft/ChangeLog/CloneMap/DeleteKey |
+| 2026-06-12 | IT (handler) | 15 | ✅ PASS | 8端点 + 完整编辑发布流程 + 10并发写入 |
+| 2026-06-12 | Smoke | 17 | ✅ PASS | 编译→启动→API→编辑发布→demo拉取→清理 全流程 |
+
+> TDD 结果: **0 个新 Bug 发现**，全部 22+17 测试 PASS
+
+---
 
 ## 变更日志
 
 | 日期 | 操作 |
 |------|------|
 | 2026-06-12 | 创建 BUGLOG.md，迁移 AI_PROMPTS.md 中 4 个已修复 bug |
+| 2026-06-12 | TDD 集成测试 + 冒烟测试: 22+17 PASS, 0 新 bug |
