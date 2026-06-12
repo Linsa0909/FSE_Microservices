@@ -3,160 +3,341 @@
     <div class="panel-head">
       <div>
         <h2>微服务状态</h2>
-        <p>验证示例微服务启动后是否成功拉取配置中心的 PublishedData。</p>
+        <p>实时检测各领域微服务 /health 端点，验证配置拉取与运行状态。</p>
       </div>
-      <button class="panel-action" @click="checkDemoService">
+      <button class="panel-action" @click="checkAll">
         <el-icon><Refresh /></el-icon>
-        刷新状态
+        刷新全部
       </button>
     </div>
 
-    <div class="service-grid">
-      <article v-for="service in serviceViews" :key="`${service.name}:${service.env}`" class="service-card">
-        <div class="service-top">
-          <div>
-            <div class="service-name">{{ service.name }}</div>
-            <div class="service-meta">env: {{ service.env }} · endpoint: {{ service.endpoint }}</div>
+    <div class="service-scroll">
+      <article
+        v-for="svc in serviceViews"
+        :key="`${svc.name}:${svc.env}`"
+        class="service-card"
+        :class="{ 'is-offline': svc.health === 'offline', 'is-domain': svc.isDomain }"
+      >
+        <!-- 头部 -->
+        <div class="card-head">
+          <div class="card-head-left">
+            <span class="svc-icon">{{ svc.icon }}</span>
+            <div>
+              <div class="svc-name">{{ svc.name }}</div>
+              <div class="svc-meta">
+                env: {{ svc.env }} · {{ svc.label }}
+                <template v-if="svc.endpoint"> · <code>{{ svc.endpoint }}</code></template>
+              </div>
+            </div>
           </div>
-          <span class="health" :class="service.status">
-            <span></span>{{ service.statusLabel }}
+          <span class="health-badge" :class="svc.health">
+            <span class="dot"></span>{{ svc.healthLabel }}
           </span>
         </div>
 
-        <div class="service-pipeline">
-          <div class="pipe-node done">启动</div>
-          <div class="pipe-line"></div>
-          <div class="pipe-node" :class="{ done: service.status === 'online' }">拉取配置</div>
-          <div class="pipe-line"></div>
-          <div class="pipe-node" :class="{ done: service.status === 'online' }">本地缓存</div>
+        <!-- 管线: 启动 → 拉取配置 → 本地缓存 -->
+        <div class="pipeline">
+          <div class="pl-node" :class="{ done: svc.health !== 'offline' }">启动</div>
+          <div class="pl-line"></div>
+          <div class="pl-node" :class="{ done: svc.health === 'online' }">拉取配置</div>
+          <div class="pl-line"></div>
+          <div class="pl-node" :class="{ done: svc.health === 'online' }">本地缓存</div>
         </div>
 
-        <div class="config-cache" v-if="service.config">
-          <div class="cache-row">
-            <span>数据库连接</span>
-            <code>{{ service.config['db.url'] || '未返回' }}</code>
-          </div>
-          <div class="cache-row">
-            <span>服务端口</span>
-            <code>{{ service.config['server.port'] || service.defaultPort }}</code>
-          </div>
-          <div class="cache-row">
-            <span>日志级别</span>
-            <code>{{ service.config['log.level'] || '未返回' }}</code>
+        <!-- 配置绑定展示 -->
+        <div class="config-bind" v-if="svc.config && Object.keys(svc.config).length">
+          <div class="bind-row" v-for="(val, key) in svc.config" :key="key">
+            <span>{{ key }}</span>
+            <code>{{ val }}</code>
           </div>
         </div>
 
-        <div class="status-empty" v-else>
-          {{ service.emptyText }}
+        <!-- 空状态 -->
+        <div class="status-empty" v-else-if="svc.health !== 'checking'">
+          <template v-if="svc.health === 'offline'">
+            服务未启动或不可达。请启动对应的 demo-service 实例。
+          </template>
+          <template v-else>
+            该服务已注册配置组，尚未启动对应进程。
+          </template>
+        </div>
+        <div class="status-empty checking" v-else>
+          正在检测...
         </div>
       </article>
 
-      <article class="service-card muted">
-        <div class="service-name">客户端拉取接口</div>
-        <p>示例服务启动时调用配置中心：</p>
-        <code class="endpoint">GET /api/configs/order-service/dev/published</code>
-        <p>当前 MVP 使用启动拉取 + 前端轮询，运行期动态推送通过预留接口扩展。</p>
+      <!-- 图例卡 -->
+      <article class="service-card muted-legend">
+        <div class="svc-name">服务拉取接口</div>
+        <p>各领域服务启动时通过共享 ConfigClient SDK 拉取配置：</p>
+        <code class="endpoint">GET /api/configs/{service}/{env}/published</code>
+        <p style="margin-top:10px">健康检测通过 <code>/health</code> 端点，返回 <code>{"status":"ok","config_from_center":true}</code>。</p>
       </article>
     </div>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
-
-const demoStatus = ref('checking')
-const demoConfig = ref(null)
-
-const serviceSeeds = [
-  { name: 'order-service', env: 'dev', endpoint: 'http://localhost:3000', defaultPort: '3000', realDemo: true },
-  { name: 'order-service', env: 'test', endpoint: '待接入', defaultPort: '3000', realDemo: false },
-  { name: 'user-service', env: 'dev', endpoint: '待接入', defaultPort: '3001', realDemo: false },
-]
-
-const statusLabel = computed(() => {
-  if (demoStatus.value === 'online') return '在线'
-  if (demoStatus.value === 'checking') return '检测中'
-  return '离线'
-})
 
 const props = defineProps({
   configs: { type: Array, default: () => [] },
 })
 
-const serviceViews = computed(() => serviceSeeds.map(seed => {
-  if (seed.realDemo) {
-    return {
-      ...seed,
-      status: demoStatus.value,
-      statusLabel: statusLabel.value,
-      config: demoConfig.value,
-      emptyText: demoStatus.value === 'checking' ? '正在检测示例服务...' : '未获取到示例服务配置。请先启动后端和 demo-service。',
-    }
-  }
+// ---------------------------------------------------------------------------
+// 服务注册表 — 所有可能运行的微服务实例
+// ---------------------------------------------------------------------------
+const REGISTRY = [
+  // 通用服务
+  { name: 'order-service',   env: 'dev',  endpoint: 'http://localhost:3000', label: '通用配置回显',      icon: '📦' },
+  { name: 'order-service',   env: 'test', endpoint: null,                    label: '通用配置回显',      icon: '📦' },
+  { name: 'user-service',    env: 'dev',  endpoint: null,                    label: '通用配置回显',      icon: '📦' },
+  { name: 'user-service',    env: 'prod', endpoint: null,                    label: '通用配置回显',      icon: '📦' },
+  // 领域仿真服务
+  { name: 'radar-service',   env: 'dev',  endpoint: 'http://localhost:3001', label: '火控雷达',          icon: '🔴', isDomain: true },
+  { name: 'radar-service',   env: 'prod', endpoint: null,                    label: '火控雷达 (生产)',   icon: '🔴', isDomain: true },
+  { name: 'sensor-service',  env: 'dev',  endpoint: 'http://localhost:3002', label: '光电传感器',        icon: '📷', isDomain: true },
+  { name: 'sensor-service',  env: 'prod', endpoint: null,                    label: '光电传感器 (生产)', icon: '📷', isDomain: true },
+  { name: 'navigation-service', env: 'dev',  endpoint: 'http://localhost:3003', label: '船舶航海',      icon: '🚢', isDomain: true },
+  { name: 'navigation-service', env: 'prod', endpoint: null,                    label: '船舶航海 (生产)', icon: '🚢', isDomain: true },
+]
 
-  const matched = props.configs.find(item => item.service === seed.name && item.env === seed.env)
+const healthMap = reactive({})   // key: "name:env" → 'checking'|'online'|'offline'
+const configMap = reactive({})   // key: "name:env" → publishedData or config from /health
+
+// ---------------------------------------------------------------------------
+// 服务视图 — 合并注册表 + configs prop + healthMap
+// ---------------------------------------------------------------------------
+const serviceViews = computed(() => REGISTRY.map(reg => {
+  const key = `${reg.name}:${reg.env}`
+  const health = healthMap[key] || 'checking'
+  const matched = props.configs.find(c => c.service === reg.name && c.env === reg.env)
+
+  let healthLabel = '检测中'
+  if (health === 'online')  healthLabel = '在线'
+  if (health === 'offline') healthLabel = '离线'
+  if (health === 'bound')   healthLabel = '配置已绑定'
+
+  // 配置来源: 优先用 health check 返回的 config，其次用后端 API 的 publishedData
+  const config = configMap[key] || matched?.publishedData || null
+
   return {
-    ...seed,
-    status: matched ? 'reserved' : 'offline',
-    statusLabel: matched ? '配置已绑定' : '未配置',
-    config: matched?.publishedData || null,
-    emptyText: matched ? '当前仅展示配置绑定，尚未启动对应示例服务进程。' : '未找到对应配置组。',
+    ...reg,
+    health,
+    healthLabel,
+    config,
   }
 }))
 
-async function checkDemoService() {
-  demoStatus.value = 'checking'
+// ---------------------------------------------------------------------------
+// 健康检测
+// ---------------------------------------------------------------------------
+async function checkHealth(reg) {
+  const key = `${reg.name}:${reg.env}`
+  if (!reg.endpoint) {
+    // 无 endpoint → 仅检查是否有配置绑定
+    const matched = props.configs.find(c => c.service === reg.name && c.env === reg.env)
+    healthMap[key] = matched ? 'bound' : 'offline'
+    return
+  }
+
+  healthMap[key] = 'checking'
   try {
-    const resp = await fetch('/demo/')
+    const resp = await fetch(`${reg.endpoint}/health`, { signal: AbortSignal.timeout(3000) })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = await resp.json()
-    demoConfig.value = data.config || {}
-    demoStatus.value = 'online'
+
+    if (data.config_from_center) {
+      healthMap[key] = 'online'
+      // 同时拉取该服务的 / 端点获取配置详情
+      try {
+        const infoResp = await fetch(`${reg.endpoint}/`, { signal: AbortSignal.timeout(2000) })
+        if (infoResp.ok) {
+          const info = await infoResp.json()
+          configMap[key] = info.config || info.raw || {}
+        }
+      } catch { /* / endpoint optional */ }
+    } else {
+      healthMap[key] = 'offline'
+    }
   } catch {
-    demoConfig.value = null
-    demoStatus.value = 'offline'
+    healthMap[key] = 'offline'
   }
 }
 
-onMounted(checkDemoService)
+async function checkAll() {
+  const tasks = REGISTRY.map(reg => checkHealth(reg))
+  await Promise.allSettled(tasks)
+}
+
+onMounted(checkAll)
 </script>
 
 <style scoped>
-.service-status { padding: 20px 24px 28px; overflow: auto; }
-.panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.service-status {
+  padding: 20px 24px 28px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
 .panel-head h2 { font-size: 18px; font-weight: 650; color: var(--text-primary); margin-bottom: 4px; }
-.panel-head p { font-size: var(--font-size-sm); color: var(--text-secondary); }
-.panel-action { height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-secondary); cursor: pointer; font-family: var(--font-family); }
+.panel-head p  { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.panel-action {
+  height: 32px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 12px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); background: var(--bg-surface);
+  color: var(--text-secondary); cursor: pointer; font-family: var(--font-family);
+  font-size: var(--font-size-sm); flex-shrink: 0;
+}
 .panel-action:hover { border-color: var(--border-hover); color: var(--text-primary); }
-.service-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 16px; }
-.service-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
-.service-card.muted p { color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.7; margin-top: 10px; }
-.service-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
-.service-name { font-size: var(--font-size-lg); font-weight: 650; color: var(--text-primary); }
-.service-meta { margin-top: 4px; font-size: var(--font-size-xs); color: var(--text-placeholder); }
-.health { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: 600; }
-.health span { width: 7px; height: 7px; border-radius: 50%; }
-.health.online { color: var(--color-published); background: var(--color-published-bg); }
-.health.online span { background: var(--color-published); }
-.health.offline { color: var(--diff-deleted-text); background: var(--diff-deleted-bg); }
-.health.offline span { background: var(--diff-deleted-text); }
-.health.checking { color: var(--color-pending); background: var(--color-pending-bg); }
-.health.checking span { background: var(--color-pending); }
-.health.reserved { color: var(--color-primary); background: var(--bg-selected); }
-.health.reserved span { background: var(--color-primary); }
-.service-pipeline { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
-.pipe-node { height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); color: var(--text-placeholder); background: var(--bg-subtle); font-size: var(--font-size-xs); font-weight: 600; }
-.pipe-node.done { color: var(--color-primary); background: var(--bg-selected); border-color: rgba(94, 106, 210, .22); }
-.pipe-line { height: 1px; flex: 1; background: var(--border-subtle); }
-.config-cache { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; }
-.cache-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); font-size: var(--font-size-sm); }
-.cache-row:last-child { border-bottom: none; }
-.cache-row span { color: var(--text-secondary); }
-.cache-row code, .endpoint { color: var(--text-primary); background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 2px 6px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: var(--font-size-xs); }
-.endpoint { display: inline-block; margin-top: 8px; }
-.status-empty { color: var(--text-placeholder); font-size: var(--font-size-sm); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 18px; text-align: center; }
-@media (max-width: 920px) {
-  .service-grid { grid-template-columns: 1fr; }
+
+/* ── 可滚动网格 ── */
+.service-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  align-content: start;
+  padding-right: 4px;
+}
+
+.service-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.service-card.is-domain {
+  border-left: 3px solid var(--color-primary);
+}
+
+.service-card.is-offline {
+  opacity: 0.7;
+}
+
+/* ── 卡片头部 ── */
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.card-head-left { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.svc-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.svc-name {
+  font-size: var(--font-size-base);
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.svc-meta {
+  margin-top: 3px;
+  font-size: var(--font-size-xs);
+  color: var(--text-placeholder);
+  line-height: 1.5;
+}
+.svc-meta code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  background: var(--bg-subtle);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── 健康徽章 ── */
+.health-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 9px; border-radius: 999px;
+  font-size: var(--font-size-xs); font-weight: 600; flex-shrink: 0;
+}
+.health-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+.health-badge.online  { color: var(--color-published); background: var(--color-published-bg); }
+.health-badge.online  .dot { background: var(--color-published); }
+.health-badge.offline { color: var(--diff-deleted-text); background: var(--diff-deleted-bg); }
+.health-badge.offline .dot { background: var(--diff-deleted-text); }
+.health-badge.checking{ color: var(--color-pending); background: var(--color-pending-bg); }
+.health-badge.checking .dot { background: var(--color-pending); }
+.health-badge.bound   { color: var(--color-primary); background: var(--bg-selected); }
+.health-badge.bound   .dot { background: var(--color-primary); }
+
+/* ── 管线 ── */
+.pipeline {
+  display: flex; align-items: center; gap: 6px;
+}
+.pl-node {
+  height: 26px; display: inline-flex; align-items: center; padding: 0 9px;
+  border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
+  color: var(--text-placeholder); background: var(--bg-subtle);
+  font-size: var(--font-size-xs); font-weight: 600;
+}
+.pl-node.done {
+  color: var(--color-primary); background: var(--bg-selected);
+  border-color: rgba(94, 106, 210, .22);
+}
+.pl-line { height: 1px; flex: 1; background: var(--border-subtle); }
+
+/* ── 配置绑定表 ── */
+.config-bind {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.bind-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-sm);
+}
+.bind-row:last-child { border-bottom: none; }
+.bind-row span { color: var(--text-secondary); flex-shrink: 0; }
+.bind-row code {
+  color: var(--text-primary); background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  padding: 2px 6px; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: var(--font-size-xs); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── 空状态 / 图例卡 ── */
+.status-empty {
+  color: var(--text-placeholder); font-size: var(--font-size-sm);
+  border: 1px dashed var(--border-subtle); border-radius: var(--radius-md);
+  padding: 16px; text-align: center; line-height: 1.6;
+}
+.status-empty.checking { color: var(--color-pending); }
+
+.muted-legend {
+  border-style: dashed;
+  border-color: var(--border-subtle);
+  background: var(--bg-subtle);
+}
+.muted-legend p {
+  color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.7; margin: 0;
+}
+.muted-legend .svc-name {
+  margin-bottom: 2px;
+}
+.endpoint {
+  display: inline-block; margin-top: 8px;
+  color: var(--text-primary); background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: var(--font-size-xs);
 }
 </style>

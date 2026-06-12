@@ -333,6 +333,95 @@ func TestHandler_Watch_Reserved(t *testing.T) {
 	}
 }
 
+// ===================== Domain service config tests =====================
+
+func TestHandler_DomainServiceConfig(t *testing.T) {
+	r, cs := setup()
+
+	// 模拟雷达服务 seed: 5 个配置项
+	cs.SetKey("radar-service", "dev", "radar.scan_rate_hz", "60")
+	cs.SetKey("radar-service", "dev", "radar.range_km", "150")
+	cs.SetKey("radar-service", "dev", "radar.max_targets", "32")
+	cs.SetKey("radar-service", "dev", "radar.mode", "search")
+	cs.SetKey("radar-service", "dev", "radar.band", "X")
+	cs.Publish("radar-service", "dev")
+
+	// 验证 published API
+	req := httptest.NewRequest(http.MethodGet, "/api/configs/radar-service/dev/published", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+
+	var body struct {
+		Config map[string]string `json:"config"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if len(body.Config) != 5 {
+		t.Errorf("radar-service dev should have 5 config items, got %d", len(body.Config))
+	}
+	if body.Config["radar.mode"] != "search" {
+		t.Errorf("radar.mode = %q, want search", body.Config["radar.mode"])
+	}
+}
+
+func TestHandler_GetOne_DomainServiceWithLogs(t *testing.T) {
+	r, cs := setup()
+
+	cs.SetKey("navigation-service", "dev", "nav.speed_knots", "20")
+	cs.SetKey("navigation-service", "dev", "nav.destination", "Shanghai")
+	cs.Publish("navigation-service", "dev")
+	cs.SetKey("navigation-service", "dev", "nav.speed_knots", "35") // edit
+
+	req := httptest.NewRequest(http.MethodGet, "/api/configs/navigation-service/dev", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var body struct {
+		Config store.ConfigGroup    `json:"config"`
+		Logs   []store.ChangeRecord `json:"logs"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &body)
+
+	if body.Config.Service != "navigation-service" {
+		t.Errorf("service = %q", body.Config.Service)
+	}
+	// 应该有 4 条日志: 新增 speed, 新增 dest, 发布, 修改 speed
+	if len(body.Logs) != 4 {
+		t.Errorf("want 4 log entries, got %d", len(body.Logs))
+	}
+}
+
+func TestHandler_TenConfigGroups(t *testing.T) {
+	r, cs := setup()
+
+	// 模拟全部 10 组 seed
+	seeds := []struct{ service, env string }{
+		{"order-service", "dev"}, {"order-service", "test"},
+		{"user-service", "dev"}, {"user-service", "prod"},
+		{"radar-service", "dev"}, {"radar-service", "prod"},
+		{"sensor-service", "dev"}, {"sensor-service", "prod"},
+		{"navigation-service", "dev"}, {"navigation-service", "prod"},
+	}
+	for _, s := range seeds {
+		cs.SetKey(s.service, s.env, "k", "v")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/configs", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var body struct {
+		Configs []store.ConfigGroup `json:"configs"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if len(body.Configs) != 10 {
+		t.Errorf("want 10 config groups, got %d", len(body.Configs))
+	}
+}
+
 // ===================== Full flow: Edit → Publish → Verify =====================
 
 func TestHandler_FullFlow_EditPublishVerify(t *testing.T) {

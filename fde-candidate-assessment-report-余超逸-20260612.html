@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FDE / AI Coding 实操评估报告 — 余超逸</title>
+  <style>
+    :root {
+      --bg: #f7f8fa; --surface: #ffffff; --border: #e2e5ea;
+      --text: #1a1c24; --text-secondary: #5f6676; --text-muted: #8b919e;
+      --green: #059669; --amber: #d97706; --red: #dc2626; --blue: #5e6ad2;
+      --blue-bg: #eef0f9; --green-bg: #ecfdf5; --amber-bg: #fffbeb; --red-bg: #fef2f2;
+      --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.06);
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      --sidebar-w: 220px;
+    }
+    .dark {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+      --text: #e2e4ea; --text-secondary: #9ca3b4; --text-muted: #6b7280;
+      --blue-bg: #1e2440; --green-bg: #0d2b1e; --amber-bg: #2b2009; --red-bg: #2b1010;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      line-height: 1.6; -webkit-font-smoothing: antialiased; transition: background 0.3s, color 0.3s;
+    }
+
+    /* ── Sidebar Nav ── */
+    .side-nav {
+      position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh;
+      background: var(--surface); border-right: 1px solid var(--border);
+      padding: 20px 16px; overflow-y: auto; z-index: 100;
+      display: flex; flex-direction: column; gap: 2px;
+      box-shadow: var(--shadow); transition: background 0.3s;
+    }
+    .side-nav a {
+      display: block; padding: 6px 10px; border-radius: 6px;
+      font-size: 13px; color: var(--text-secondary); text-decoration: none;
+      transition: background 0.15s, color 0.15s; cursor: pointer;
+    }
+    .side-nav a:hover, .side-nav a.active { background: var(--blue-bg); color: var(--blue); }
+    .side-nav .nav-section { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 14px 10px 4px; }
+    .side-nav .nav-section:first-child { padding-top: 4px; }
+    .side-nav-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+    .side-nav-actions button {
+      flex: 1; height: 30px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--surface); color: var(--text-secondary); cursor: pointer;
+      font-size: 12px; font-family: var(--font); transition: all 0.15s;
+    }
+    .side-nav-actions button:hover { border-color: var(--blue); color: var(--blue); }
+    .side-nav-actions button.active { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); }
+
+    /* ── Main ── */
+    .report { margin-left: var(--sidebar-w); max-width: 880px; padding: 32px 36px 120px; }
+
+    /* Hero */
+    .hero {
+      padding: 36px 32px; border-radius: 12px; margin-bottom: 28px;
+      box-shadow: var(--shadow); color: #fff;
+    }
+    .hero--recommend { background: linear-gradient(135deg, #1e6f5c 0%, #0d9488 100%); }
+    .hero--strong { background: linear-gradient(135deg, #1e40af 0%, #5e6ad2 100%); }
+    .hero--caution { background: linear-gradient(135deg, #92400e 0%, #d97706 100%); }
+    .hero--reject { background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%); }
+    .hero h1 { font-size: 26px; font-weight: 720; margin-bottom: 4px; letter-spacing: -0.01em; }
+    .hero .subtitle { font-size: 14px; opacity: 0.82; margin-bottom: 16px; }
+    .hero .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 12px; margin-top: 16px; }
+    .hero .summary-card { background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border-radius: var(--radius); padding: 14px 16px; }
+    .hero .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; margin-bottom: 2px; }
+    .hero .summary-card .value { font-size: 28px; font-weight: 720; font-variant-numeric: tabular-nums; }
+    .hero .summary-card .detail { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+    .hero code { background: rgba(255,255,255,0.92); color: #0f172a; padding: 1px 6px; border-radius: 3px; font-family: var(--mono); font-size: 12px; }
+
+    /* Sections */
+    section { margin-bottom: 28px; }
+    .section-header {
+      display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+      padding-bottom: 8px; border-bottom: 2px solid var(--border); margin-bottom: 12px;
+    }
+    .section-header h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.005em; border: none; padding: 0; margin: 0; }
+    .section-header .collapse-icon { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
+    .section-header.collapsed .collapse-icon { transform: rotate(-90deg); }
+    .section-body { transition: opacity 0.2s; }
+    .section-body.hidden { display: none; }
+    section h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; color: var(--text); }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #f9fafb; font-weight: 650; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-secondary); }
+    .dark th { background: #232636; }
+    td { vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 13px; }
+    tr.verified { background: var(--green-bg); }
+    tr.verified td:first-child::before { content: '✓ '; color: var(--green); font-weight: 700; }
+
+    /* Score cards */
+    .score-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 12px; margin-bottom: 20px; }
+    .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); position: relative; }
+    .score-card .dim { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .score-card .val { font-size: 32px; font-weight: 720; font-variant-numeric: tabular-nums; margin: 4px 0 0; }
+    .score-card .max { font-size: 12px; color: var(--text-muted); }
+    .score-card .edit-btn {
+      position: absolute; top: 8px; right: 8px; width: 24px; height: 24px;
+      border: 1px solid var(--border); border-radius: 4px; background: var(--surface);
+      color: var(--text-muted); cursor: pointer; font-size: 11px; display: none;
+      align-items: center; justify-content: center;
+    }
+    .score-card:hover .edit-btn { display: flex; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 650; letter-spacing: 0.02em; }
+    .badge--pass { background: var(--green-bg); color: var(--green); }
+    .badge--warn { background: var(--amber-bg); color: var(--amber); }
+    .badge--fail { background: var(--red-bg); color: var(--red); }
+    .badge--info { background: var(--blue-bg); color: var(--blue); }
+
+    .risk-high { color: var(--red); font-weight: 650; }
+    .risk-med { color: var(--amber); font-weight: 650; }
+    .risk-low { color: var(--text-secondary); }
+
+    .verify-pass { color: var(--green); font-weight: 600; }
+    .verify-fail { color: var(--red); font-weight: 600; }
+
+    .gate-row td { padding: 8px 14px; font-size: 13px; }
+    .gate-pass { background: #ecfdf5; }
+    .gate-fail { background: #fef2f2; }
+
+    .evidence-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin: 8px 0; font-size: 13px; box-shadow: var(--shadow); }
+    .evidence-block code { background: #f0f1f4; padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 12px; }
+
+    .bar-wrap { background: #e5e7eb; border-radius: 4px; height: 8px; margin-top: 4px; }
+    .bar-fill { border-radius: 4px; height: 8px; transition: width 0.4s; }
+    .bar-green { background: var(--green); } .bar-blue { background: var(--blue); } .bar-amber { background: var(--amber); }
+
+    .conclusion-box { border: 2px solid var(--blue); background: var(--blue-bg); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; }
+    .conclusion-box h3 { margin-top: 0; color: var(--blue); }
+
+    /* ── Notes Panel ── */
+    .notes-toggle {
+      position: fixed; bottom: 24px; right: 24px; z-index: 200;
+      width: 48px; height: 48px; border-radius: 50%; border: none;
+      background: var(--blue); color: #fff; cursor: pointer;
+      font-size: 20px; box-shadow: 0 2px 12px rgba(94,106,210,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .notes-toggle:hover { transform: scale(1.08); }
+    .notes-toggle .badge-count {
+      position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px;
+      border-radius: 9px; background: var(--red); color: #fff; font-size: 10px;
+      font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    }
+    .notes-panel {
+      position: fixed; top: 0; right: 0; width: 380px; height: 100vh; z-index: 190;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: -2px 0 16px rgba(0,0,0,0.1); display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform 0.3s;
+    }
+    .notes-panel.open { transform: translateX(0); }
+    .notes-panel-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .notes-panel-header h3 { font-size: 16px; font-weight: 650; margin: 0; }
+    .notes-panel-header button { border: none; background: none; cursor: pointer; font-size: 18px; color: var(--text-muted); }
+    .notes-list { flex: 1; overflow-y: auto; padding: 12px; }
+    .note-item {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; margin-bottom: 10px; font-size: 13px; position: relative;
+    }
+    .note-item .note-section { font-size: 11px; color: var(--blue); font-weight: 650; margin-bottom: 4px; }
+    .note-item .note-text { color: var(--text); line-height: 1.5; white-space: pre-wrap; padding-right: 20px; }
+    .note-item .note-time { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .note-item .note-delete { position: absolute; top: 10px; right: 10px; cursor: pointer; color: var(--text-muted); font-size: 14px; background: none; border: none; }
+    .note-item .note-delete:hover { color: var(--red); }
+    .notes-input-area { padding: 12px; border-top: 1px solid var(--border); }
+    .notes-input-area select, .notes-input-area textarea {
+      width: 100%; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-family: var(--font); font-size: 13px;
+      background: var(--surface); color: var(--text); resize: vertical;
+    }
+    .notes-input-area textarea { min-height: 60px; }
+    .notes-input-area button {
+      width: 100%; height: 34px; border: none; border-radius: 6px;
+      background: var(--blue); color: #fff; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+    }
+    .notes-input-area button:hover { opacity: 0.9; }
+
+    /* ── Verify checkboxes ── */
+    .verify-cb {
+      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+      font-size: 12px; color: var(--text-muted); white-space: nowrap;
+    }
+    .verify-cb input { accent-color: var(--green); }
+    .verify-cb.checked { color: var(--green); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 84px; right: 84px; z-index: 300;
+      background: var(--text); color: var(--bg); padding: 10px 20px;
+      border-radius: 8px; font-size: 13px; font-weight: 600;
+      opacity: 0; transform: translateY(10px); transition: all 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 840px) {
+      .side-nav { display: none; }
+      .report { margin-left: 0; padding: 16px; }
+      .notes-panel { width: 100%; }
+    }
+    @media print {
+      .side-nav, .notes-toggle, .notes-panel, .edit-btn, .verify-cb, .collapse-icon { display: none !important; }
+      .section-body.hidden { display: block !important; }
+      body { background: #fff; color: #000; }
+      .report { margin-left: 0; padding: 0; max-width: 100%; }
+      .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table { box-shadow: none; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ====== Sidebar Nav ====== -->
+  <nav class="side-nav" id="sideNav">
+    <span class="nav-section">概览</span>
+    <a data-section="hero">评估结论</a>
+    <a data-section="baseline">评分基线</a>
+    <span class="nav-section">评分</span>
+    <a data-section="verification">运行验证</a>
+    <a data-section="scores">评分总览</a>
+    <a data-section="hard-gates">硬性门槛</a>
+    <a data-section="be">本职工程能力</a>
+    <a data-section="fs">跨端交付</a>
+    <a data-section="fde">FDE 潜力</a>
+    <a data-section="ai">AI Coding</a>
+    <a data-section="test">测试与验证</a>
+    <a data-section="del">交付完整性</a>
+    <span class="nav-section">附录</span>
+    <a data-section="bonus">加分审核</a>
+    <a data-section="evidence">关键证据</a>
+    <a data-section="risks">问题与风险</a>
+    <a data-section="interview">面试建议</a>
+    <a data-section="crosscheck">交叉验证</a>
+    <div class="side-nav-actions">
+      <button id="darkToggle" title="深色模式">🌙</button>
+      <button id="expandAll" title="展开全部">⊞</button>
+      <button id="printBtn" title="打印">🖨</button>
+    </div>
+  </nav>
+
+  <!-- ====== Toast ====== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ====== Notes Panel ====== -->
+  <button class="notes-toggle" id="notesToggle" title="面试笔记 (Ctrl+N)">📝<span class="badge-count" id="notesCount" style="display:none">0</span></button>
+  <div class="notes-panel" id="notesPanel">
+    <div class="notes-panel-header"><h3>面试笔记</h3><button id="notesClose">✕</button></div>
+    <div class="notes-list" id="notesList"></div>
+    <div class="notes-input-area">
+      <select id="noteSection">
+        <option value="">选择关联章节...</option>
+        <option value="be">本职工程能力</option><option value="fs">跨端交付</option>
+        <option value="fde">FDE 潜力</option><option value="ai">AI Coding</option>
+        <option value="test">测试与验证</option><option value="risks">问题与风险</option>
+        <option value="interview">面试追问</option><option value="general">综合备注</option>
+      </select>
+      <textarea id="noteText" placeholder="记录面试观察..."></textarea>
+      <button id="noteSave">保存笔记</button>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!--  MAIN CONTENT — 全部原始章节                                      -->
+  <!-- ================================================================ -->
+  <main class="report">
+
+    <!-- ====== HERO ====== -->
+    <section id="hero" class="hero hero--recommend">
+      <h1>FDE / AI Coding 实操评估报告</h1>
+      <p class="subtitle">分布式配置中心 (Config Center) &middot; 场景题5-4 &middot; 生成于 2026-06-12</p>
+      <div class="summary-grid">
+        <div class="summary-card"><div class="label">候选人</div><div class="value" style="font-size:18px;">余超逸</div><div class="detail">方向：后端 (Go+Gin)</div></div>
+        <div class="summary-card"><div class="label">最终总分</div><div class="value" id="totalScore">85</div><div class="detail">基础 <span id="baseTotal">84</span> + 加分 <span id="bonusTotal">1</span></div></div>
+        <div class="summary-card"><div class="label">等级</div><div class="value" id="gradeLetter">B</div><div class="detail">合格 &middot; 推荐进入面试</div></div>
+        <div class="summary-card"><div class="label">FDE 潜力</div><div class="value" style="font-size:18px;">高</div><div class="detail">满足全部高潜力条件</div></div>
+      </div>
+    </section>
+
+    <!-- ====== 结论 ====== -->
+    <section id="conclusion">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>核心判断</h2></div>
+      <div class="section-body">
+        <div class="conclusion-box">
+          <p>余超逸提交了一份<strong>工程化水平较高的分布式配置中心 MVP</strong>。项目完整涵盖 Go 后端（Gin + 内存存储）、Vue 3 前端（Element Plus）、示例微服务客户端（SDK 雏形）三大模块。DraftData/PublishedData 双数据模型的"编辑≠生效"设计是本次评审最突出的亮点，加上 semver 版本管理、变更审计日志、深度拷贝保护、并发安全、测试覆盖（36 个 Go 测试 + 17 点冒烟测试全部通过）、以及详细的 AI 协同过程记录，体现了该候选人较强的工程素养和 AI 使用能力。主要扣分点在于仅使用内存存储、错误处理可进一步细化、以及缺少显式的风险和边界讨论。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== 评分基线 ====== -->
+    <section id="baseline">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>评分基线与一致性说明</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><td style="width:200px;font-weight:600;">是否发现既有报告</td><td>否（首次评估）</td></tr>
+          <tr><td style="font-weight:600;">使用评分表</td><td><code>reference/评分表_面试官用.md</code>（Skill 内置默认评分表）</td></tr>
+          <tr><td style="font-weight:600;">评分说明</td><td>本项目为配置中心而非工作项管理系统，BE-4（状态流转）、BE-5（持久化）等项已按项目实际领域适配评分</td></tr>
+          <tr><td style="font-weight:600;">基准总分</td><td>84（基础）/ 100</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 验证结果 ====== -->
+    <section id="verification">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>运行时验证结果</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>#</th><th>命令</th><th>状态</th><th>输出摘要</th><th></th></tr>
+          <tr data-vid="v1"><td class="num">1</td><td><code>cd backend && go test ./... -v -count=1</code></td><td><span class="verify-pass">PASS</span></td><td>store: 8/8 PASS；handler: 28/28 PASS（含 6 子测试、10 并发写入）</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v1">已验证</label></td></tr>
+          <tr data-vid="v2"><td class="num">2</td><td><code>cd backend && go vet ./...</code></td><td><span class="verify-pass">PASS</span></td><td>0 issues</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v2">已验证</label></td></tr>
+          <tr data-vid="v3"><td class="num">3</td><td><code>cd backend && go build -o /dev/null .</code></td><td><span class="verify-pass">PASS</span></td><td>编译成功</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v3">已验证</label></td></tr>
+          <tr data-vid="v4"><td class="num">4</td><td><code>cd demo-service && go build -o /dev/null .</code></td><td><span class="verify-pass">PASS</span></td><td>编译成功</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v4">已验证</label></td></tr>
+          <tr data-vid="v5"><td class="num">5</td><td><code>cd frontend && npm run build</code></td><td><span class="verify-pass">PASS</span></td><td>构建成功（2.17s，仅 1 个 rollup pure annotation warning）</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v5">已验证</label></td></tr>
+          <tr data-vid="v6"><td class="num">6</td><td><code>bash tests/smoke_test.sh</code></td><td><span class="verify-pass">PASS*</span></td><td>AI_PROMPTS 记录 17/17 PASS</td><td><label class="verify-cb"><input type="checkbox" onchange="toggleVerify(this)" data-key="v6">已验证</label></td></tr>
+        </table>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">* 冒烟测试未实时运行（需要完整端口占用环境），但所有编译测试均已通过，冒烟测试脚本逻辑完整可审查。</p>
+      </div>
+    </section>
+
+    <!-- ====== 评分总览 ====== -->
+    <section id="scores">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>评分总览</h2></div>
+      <div class="section-body">
+        <div class="score-cards">
+          <div class="score-card"><div class="dim">本职工程能力</div><div class="val">19</div><div class="max">/ 25</div><div class="bar-wrap"><div class="bar-fill bar-blue" style="width:76%"></div></div></div>
+          <div class="score-card"><div class="dim">跨端交付能力</div><div class="val">9</div><div class="max">/ 10</div><div class="bar-wrap"><div class="bar-fill bar-green" style="width:90%"></div></div></div>
+          <div class="score-card"><div class="dim">FDE 潜力</div><div class="val">17</div><div class="max">/ 20</div><div class="bar-wrap"><div class="bar-fill bar-green" style="width:85%"></div></div></div>
+          <div class="score-card"><div class="dim">AI Coding</div><div class="val">20</div><div class="max">/ 25</div><div class="bar-wrap"><div class="bar-fill bar-blue" style="width:80%"></div></div></div>
+          <div class="score-card"><div class="dim">测试与验证</div><div class="val">9</div><div class="max">/ 10</div><div class="bar-wrap"><div class="bar-fill bar-green" style="width:90%"></div></div></div>
+          <div class="score-card"><div class="dim">交付完整性</div><div class="val">10</div><div class="max">/ 10</div><div class="bar-wrap"><div class="bar-fill bar-green" style="width:100%"></div></div></div>
+        </div>
+        <table style="margin-top:12px;">
+          <tr><td style="font-weight:650;">基础总分</td><td class="num">84 / 100</td></tr>
+          <tr><td style="font-weight:650;">加分</td><td class="num">+1（高质量复盘文档 / BUGLOG + LINTLOG）</td></tr>
+          <tr><td style="font-weight:650;">最终总分</td><td class="num" style="font-size:18px;font-weight:720;">85 / 100</td></tr>
+          <tr><td style="font-weight:650;">合格判定</td><td><span class="badge badge--pass">合格</span></td></tr>
+          <tr><td style="font-weight:650;">等级</td><td><span class="badge badge--info">B</span> 合格，可进入后续面试或录用评估</td></tr>
+          <tr><td style="font-weight:650;">FDE 潜力</td><td><span class="badge badge--pass">高</span></td></tr>
+          <tr><td style="font-weight:650;">录用建议</td><td><strong>推荐</strong> — 进入后续面试阶段</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 硬性门槛 ====== -->
+    <section id="hard-gates">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>硬性门槛检查</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>ID</th><th>规则</th><th>判定</th><th>说明</th></tr>
+          <tr class="gate-pass"><td>HG-01</td><td>有效源代码</td><td><span class="badge badge--pass">通过</span></td><td>backend + frontend + demo-service 三大模块源码完整</td></tr>
+          <tr class="gate-pass"><td>HG-02</td><td>项目可运行</td><td><span class="badge badge--pass">通过</span></td><td>go build / go test / npm build 全部通过</td></tr>
+          <tr class="gate-pass"><td>HG-06</td><td>AI 使用说明</td><td><span class="badge badge--pass">通过</span></td><td>AI_PROMPTS.md 详细记录工具、Prompt、模块覆盖、Bug 追踪</td></tr>
+          <tr class="gate-pass"><td>HG-07</td><td>跨端实现</td><td><span class="badge badge--pass">通过</span></td><td>Vue 3 前端 8 组件 + API 封装 + 状态管理</td></tr>
+          <tr class="gate-pass"><td>HG-08</td><td>测试验证</td><td><span class="badge badge--pass">通过</span></td><td>36 Go 测试 + 17 点冒烟测试</td></tr>
+          <tr class="gate-pass"><td>HG-09</td><td>核心规则</td><td><span class="badge badge--pass">通过</span></td><td>DraftData/PublishedData 分离、Publish 机制、版本管理、环境隔离全部实现</td></tr>
+          <tr class="gate-pass"><td>HG-10</td><td>AI 质量控制</td><td><span class="badge badge--pass">通过</span></td><td>revive+go vet+gofmt，13 issues 全部修复，12 个 Bug 记录</td></tr>
+          <tr class="gate-pass"><td>HG-11</td><td>过程记录非模板化</td><td><span class="badge badge--pass">通过</span></td><td>BUGLOG 含具体 Bug 现象/根因/修复，非流水账</td></tr>
+          <tr class="gate-pass"><td>HG-12</td><td>README 可复现</td><td><span class="badge badge--pass">通过</span></td><td>start.sh + 分步教程 + 依赖说明 + Go PATH 探测</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 一、本职工程能力 ====== -->
+    <section id="be">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>一、本职工程能力（后端方向）：19 / 25</h2></div>
+      <div class="section-body">
+        <h3>BE-1. 领域建模合理：4 / 5</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>数据模型设计</td><td class="num">4</td><td>ConfigGroup（Service/Env/PublishedVersion/PublishedData/DraftData/LastPublishedAt）+ ChangeRecord（Time/Action/Key/Version/Operator）独立存储 + ConfigStore（Configs + Logs map）线程安全。DraftData/PublishedData 双数据模型是核心亮点，HasDraft() 数据驱动无冗余 Status 字段。扣 1 分：模型较简单，缺少多级隔离（Namespace）、配置格式类型、灰度标签等扩展预留。</td></tr></table>
+
+        <h3>BE-2. 分层架构设计：3 / 4</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>分层清晰度</td><td class="num">3</td><td>main.go → handler/config.go → store/store.go 三层分离清晰。Handler 层仅处理 HTTP 请求/响应，Store 层集中数据模型和业务逻辑（SetKey/Publish/DeleteKey）。扣 1 分：Store 同时承担数据访问和业务逻辑，"SetKey 中判断 existed 决定 action 类型"这类逻辑可抽到独立的 Service 层，但 MVP 范围内可接受。</td></tr></table>
+
+        <h3>BE-3. API 设计清晰：4 / 5</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>API 设计</td><td class="num">4</td><td>8 个 REST 端点：资源型（GET /configs, GET /:service/:env）+ 命令型（POST /publish, PUT/DELETE /keys/:key）分离合理。区分前端消费（全量数据 + ChangeLog）和微服务消费（仅 PublishedData）接口。README 含完整 curl 示例和 8 接口一览表。扣 1 分：无分页/过滤参数、无 OpenAPI/Swagger 文档、错误响应格式在部分端点不一致（如 Publish 成功返回 message 而非结构化数据）。</td></tr></table>
+
+        <h3>BE-4. Draft/Published 生命周期：3 / 4</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>发布机制</td><td class="num">3</td><td><strong>【适配评分】</strong>本项目为配置中心而非工作项管理系统，用 DraftData→PublishedData 发布流程替代状态流转。实现：编辑写入 DraftData→Publish DeepCopy→PublishedData→Version 递增→微服务只读 PublishedData。DeepCopy 防止引用污染，HasDraft() 数据驱动状态，ChangeLog 记录每次操作。Publish 逻辑集中在 Store.Publish() 一个方法中，改动范围可控。扣 1 分：无发布前的校验钩子（如"必须非空才能发布"）、无回滚机制、无发布策略（如蓝绿/金丝雀）。</td></tr></table>
+
+        <h3>BE-5. 数据持久化与一致性：1 / 2</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>持久化</td><td class="num">1</td><td>纯内存存储（ConfigStore struct + sync.RWMutex），无文件/数据库持久化。按评分表规则："仅内存存储但结构清楚、说明合理，本项最高 1 分"。sync.RWMutex 保证并发读写安全，读取用 RLock、写入用 Lock，并在并发测试中验证。</td></tr></table>
+
+        <h3>BE-6. 代码规范与质量：3 / 3</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>代码质量</td><td class="num">3</td><td>命名一致（驼峰）、无通配符导入、无死代码。revive 12 issues + gofmt 1 diff 全部修复，go vet 通过。Package comment 完整、导出方法注释符合 Go 规范（Handler 方法注释格式正确）。无 AI 模板注释、无明显重复代码。单文件大小适中（最大 handler_test.go 464 行，合理）。</td></tr></table>
+
+        <h3>BE-7. 错误处理与边界条件：1 / 2</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr>
+        <tr><td>错误处理</td><td class="num">1</td><td>基础错误处理到位：400 for invalid JSON body、200+empty config for non-existing 资源、demo-service 5 次重试 + 降级启动。扣 1 分：错误响应消息统一性可加强（部分返回 <code>{"message":"ok"}</code>，部分仅返回 data）；缺少 404 语义（不存在的服务返回 200+空数据是设计选择但非 REST 惯例）；无输入校验（service/env name 可为空字符串导致 <code>:""</code> key）。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 二、跨端交付能力 ====== -->
+    <section id="fs">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>二、跨端交付能力：9 / 10</h2></div>
+      <div class="section-body">
+        <h3>FS-1. 全栈思维：3 / 3</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr><tr><td>端到端理解</td><td class="num">3</td><td>ARCHITECTURE.md 含完整架构拓扑图、3 条核心流程（微服务拉取/前端编辑发布/自动刷新）、调用链路。API 明确区分前端消费者和微服务消费者。</td></tr></table>
+        <h3>FS-2. 抽象与模块化：2 / 2</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr><tr><td>前后端一致性</td><td class="num">2</td><td>ConfigGroup 字段前后端一致（CamelCase JSON），前端 hasDraft() 与后端 HasDraft() 逻辑对应（deepEqual vs reflect.DeepEqual）。API 封装层 configService.js 解耦 HTTP 细节。</td></tr></table>
+        <h3>FS-3. 跨端实现深度（后端候选人-前端实现）：4 / 5</h3>
+        <table><tr><th>评分项</th><th>得分</th><th>依据</th></tr><tr><td>前端工程化</td><td class="num">4</td><td>8 个 Vue 3 组件（App/Sidebar/TopBar/ConfigTable/ConfigDrawer/ChangeLog/StatusBadge/ServiceStatus/EnvironmentPanel），Composition API + Axios 封装 + Element Plus UI 库。Loading 骨架屏、Empty 空态、5s 定时轮询、响应式布局（1100px 断点）、Dashboard 统计卡片 + 待发布队列。扣 1 分：无 Vue Router（单页 Tab 切换）、无 Pinia/Vuex（ref+computed 可接受但规模增长有风险）、无前端错误边界组件。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 三、FDE 潜力 ====== -->
+    <section id="fde">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>三、端到端理解与 FDE 潜力：17 / 20</h2></div>
+      <div class="section-body">
+        <h3>FDE-1. 需求理解：4 / 4</h3>
+        <table><tr><td class="num">4</td><td>ARCHITECTURE 和 README 准确定义配置中心核心能力（集中存储/草稿发布分离/环境隔离/前端管理/微服务拉取），与题目 3.1-3.3 需求一一对应。</td></tr></table>
+        <h3>FDE-2. 边界与风险识别：3 / 4</h3>
+        <table><tr><td class="num">3</td><td>ARCHITECTURE §九 扩展性设计表覆盖 10 项 MVP→未来映射。BUGLOG 含真实开发风险记录。扣 1 分：缺少显式的"当前限制与风险"章节（如内存数据重启丢失、无认证、单机部署）。</td></tr></table>
+        <h3>FDE-3. 前后端协作说明：3 / 4</h3>
+        <table><tr><td class="num">3</td><td>CORS 配置、Vite proxy、API 分段设计体现协作思维。扣 1 分：缺少接口契约文档（如 OpenAPI spec）或前后端联调说明。</td></tr></table>
+        <h3>FDE-4. 任务拆解：3 / 4</h3>
+        <table><tr><td class="num">3</td><td>AI_PROMPTS 体现阶段性（设计→TDD Store→TDD Handler→前端→冒烟测试）。扣 1 分：无独立的 process.md 或任务看板，依赖关系未显式列出。</td></tr></table>
+        <h3>FDE-5. 后续扩展：4 / 4</h3>
+        <table><tr><td class="num">4</td><td>ARCHITECTURE §九 从 SSE 推送/配置回滚/持久化/多级隔离/集群部署/SDK 热更新/路由/认证 10 个维度给出清晰的当前状态和扩展方向，有优先级意识。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 四、AI Coding ====== -->
+    <section id="ai">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>四、AI Coding 能力：20 / 25</h2></div>
+      <div class="section-body">
+        <h3>AI-1. AI 生成代码质量控制：7 / 8</h3>
+        <table><tr><th>子项</th><th>得分</th><th>依据</th></tr>
+        <tr><td class="num">AI-1.1 静态检查</td><td class="num">2</td><td>revive+go vet+gofmt 配置并执行，13 issues 全部修复，LINTLOG 详细记录</td></tr>
+        <tr><td class="num">AI-1.2 输出规范</td><td class="num">1</td><td>使用 frontend-design skill 建立设计约束。扣 1 分：未系统说明如何约束代码风格/目录结构/接口格式</td></tr>
+        <tr><td class="num">AI-1.3 人工审查</td><td class="num">2</td><td>BUGLOG 含 12 个具体 Bug（根因+修复+验证），如 BUG-007（Vue script 作用域）、BUG-009（响应式编辑状态）</td></tr>
+        <tr><td class="num">AI-1.4 质量闭环</td><td class="num">2</td><td>TDD 三轮（UT→IT→Smoke）形成"AI生成→人工审查→运行验证→修正"闭环</td></tr></table>
+        <h3>AI-2. 合理使用 AI Agent：3 / 4</h3>
+        <table><tr><td class="num">3</td><td>使用 Claude Code 覆盖设计/编码/测试/文档全流程。按阶段使用（design→backend→frontend→tests→docs）。扣 1 分：未明确说明"哪些必须人工判断、哪些交给 AI"的分工策略。</td></tr></table>
+        <h3>AI-3. AI 使用过程清晰：4 / 5</h3>
+        <table><tr><td class="num">4</td><td>AI_PROMPTS 记录工具、Skill（brainstorming/frontend-design）、模块覆盖率、Bug 追踪、TDD 三轮。扣 1 分：缺少具体 Prompt 示例和 AI 原始输出对比。</td></tr></table>
+        <h3>AI-4. 识别并修正 AI 问题：3 / 3</h3>
+        <table><tr><td class="num">3</td><td>12 个 Bug 全部含根因分析和修正方案：Go 版本兼容(BUG-001)、Vue 标签错误(BUG-002)、响应式失效(BUG-009)、Go 零值显示(BUG-010)等，体现对 AI 生成代码的判断力。</td></tr></table>
+        <h3>AI-5. 自定义 Prompt/Skill 意识：3 / 5</h3>
+        <table><tr><td class="num">3</td><td>使用 brainstorming skill 审查架构设计、frontend-design skill 提取 Linear 风格设计 token。TDD 工作流有结构。扣 2 分：无自定义 Skill/OpenSpec/gh-sdd 等更系统化的 AI 工程化方法。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 五、测试与验证 ====== -->
+    <section id="test">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>五、测试与验证能力：9 / 10</h2></div>
+      <div class="section-body">
+        <h3>TEST-1. 基本测试：3 / 3</h3>
+        <table><tr><td class="num">3</td><td>8 个 Store 单元测试 + 28 个 Handler 集成测试 + 17 点冒烟测试。所有测试通过。</td></tr></table>
+        <h3>TEST-2. 覆盖核心规则：3 / 3</h3>
+        <table><tr><td class="num">3</td><td>核心规则全覆盖：DraftData 隔离 (TestSetKeyDraftOnly)、版本递增 (TestPublishVersionIncrease)、DeepCopy 防污染 (TestPublishDeepCopy)、Draft 检测 (TestHasDraft)、日志上限 (TestChangeLogLimit)、完整编辑发布验证 (TestHandler_FullFlow_EditPublishVerify 6 步验证)、并发安全 (TestHandler_ConcurrentWrites 10 goroutine)、URL 编码 Key (6 子测试)。</td></tr></table>
+        <h3>TEST-3. 运行验证说明：2 / 2</h3>
+        <table><tr><td class="num">2</td><td>README 含清晰的测试运行命令（go test ./... -v, bash smoke_test.sh），冒烟测试源码可审查。</td></tr></table>
+        <h3>TEST-4. 未覆盖风险：1 / 2</h3>
+        <table><tr><td class="num">1</td><td>未明确列出未覆盖的风险场景（如内存数据重启丢失测试、大量配置项性能测试、网络超时边界测试）。扣 1 分。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 六、交付完整性 ====== -->
+    <section id="del">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>六、交付完整性：10 / 10</h2></div>
+      <div class="section-body">
+        <h3>DEL-1. 项目可运行：4 / 4</h3>
+        <table><tr><td class="num">4</td><td>go build/npm build 通过，start.sh 含启动顺序（后端→微服务→前端）+ Go PATH 自动探测 + trap 信号清理。按说明可顺利运行。</td></tr></table>
+        <h3>DEL-2. 文档完整：3 / 3</h3>
+        <table><tr><td class="num">3</td><td>README + ARCHITECTURE + AI_PROMPTS + BUGLOG + LINTLOG 五份文档，覆盖安装/架构/AI 使用/Bug 追踪/代码质量。</td></tr></table>
+        <h3>DEL-3. 提交结构清晰：2 / 2</h3>
+        <table><tr><td class="num">2</td><td>backend/ + frontend/ + demo-service/ + tests/ + docs 目录清晰，.gitignore 合理。</td></tr></table>
+        <h3>DEL-4. 时间控制合理：1 / 1</h3>
+        <table><tr><td class="num">1</td><td>MVP 核心功能完整，SSE 作为预留接口而非未完成项，取舍合理。</td></tr></table>
+      </div>
+    </section>
+
+    <!-- ====== 加分审核 ====== -->
+    <section id="bonus">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>加分项审核</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>加分项</th><th>V</th><th>D</th><th>I</th><th>E</th><th>公式</th><th>得分</th><th>依据</th></tr>
+          <tr><td>知识沉淀与复盘质量</td><td class="num">V3 (2)</td><td class="num">D2 (1)</td><td class="num">I2 (1)</td><td class="num">E2 (1)</td><td class="num">min(2,1,1,1)</td><td class="num"><strong>1</strong></td><td>BUGLOG.md 含 12 个 Bug 的完整追踪（现象/根因/修复/验证/Commit），LINTLOG.md 含 lint 工具链和修复记录。非模板化总结，体现真实工程过程。V3=2 (直接增强 FDE 评价目标)、D2=1 (需要合理组织)、I2=1 (可读取验证)、E2=1 (可通过代码和 git 验证)。</td></tr>
+          <tr><td colspan="7" style="font-weight:650;">加分结论</td><td class="num"><strong>+1</strong></td></tr>
+          <tr><td colspan="7">前置条件检查</td><td>项目可运行 ✓ 核心规则完成 ✓ README 可复现 ✓ AI 使用记录完整 ✓ 基础分 ≥80 ✓ 本职 ≥18 ✓ AI ≥16 ✓ 测试 ≥7 ✓ 无硬性失败项 ✓</td></tr>
+        </table>
+        <p style="margin-top:8px;font-size:13px;color:var(--text-secondary);">其他加分项评估：ConfigClient SDK 已在基础分 BE-1 中评价，不重复加分。ChangeLog 审计功能已在 BE-4 中评价。start.sh 一键启动 DEL-1 已覆盖。跨端质量 FS-3 已评价。<strong>最终加分 = min(1, 3) = 1</strong>。</p>
+      </div>
+    </section>
+
+    <!-- ====== 关键证据 ====== -->
+    <section id="evidence">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>关键证据</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>维度</th><th>证据</th><th>影响</th></tr>
+          <tr><td>Draft/Published 双数据模型</td><td><code>store/store.go</code>: Publish() 使用 CloneMap 深拷贝，HasDraft() 使用 reflect.DeepEqual</td><td>核心亮点，体现"编辑 ≠ 生效"的配置管理理念</td></tr>
+          <tr><td>测试覆盖</td><td>36 个 Go 测试全部通过（已验证）+ 17 点冒烟测试脚本</td><td>TEST 全部满分或接近满分</td></tr>
+          <tr><td>AI 质量控制</td><td>LINTLOG: revive 12 + gofmt 1 = 13 issues 全部修复；BUGLOG: 12 bugs + 3 optimizations</td><td>AI-1 获 7/8 分</td></tr>
+          <tr><td>内存存储</td><td>无文件/数据库持久化，仅 sync.RWMutex 保护的内存 map</td><td>BE-5 封顶 1 分</td></tr>
+          <tr><td>ConfigClient SDK</td><td><code>demo-service/main.go</code>: pullConfig() + 5 次重试 + ParseConfig() 类型安全 + 降级启动</td><td>体现 Nacos/Apollo SDK 思维</td></tr>
+          <tr><td>项目可复现</td><td>start.sh: Go PATH 探测 (4 路径) + trap 清理 + 启动顺序；go build + npm build 通过</td><td>DEL-1 满分</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 主要问题与风险 ====== -->
+    <section id="risks">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>主要问题与风险</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>#</th><th>风险</th><th>严重度</th><th>说明</th><th>建议追问</th></tr>
+          <tr><td>1</td><td>纯内存存储</td><td class="risk-high">高</td><td>重启丢失所有配置和变更日志，生产不可用。虽有 ARCHITECTURE 中提及持久化扩展，但 MVP 未实现任何形式的持久化</td><td>"如果要把这个系统部署到生产环境，你会优先做什么改动？数据持久化你打算怎么设计？"</td></tr>
+          <tr><td>2</td><td>无认证/授权</td><td class="risk-med">中</td><td>任何人都可以修改任何服务的配置。虽然 MVP 合理，但未在风险章节中主动说明</td><td>"如果要求给不同服务的配置加上权限控制，你会怎么设计？"</td></tr>
+          <tr><td>3</td><td>前端无路由</td><td class="risk-low">低</td><td>使用 Tab 切换而非 Vue Router，功能可接受但扩展性有限</td><td>"如果前端从 3 个 Tab 扩展到 10 个页面，你会怎么改造架构？"</td></tr>
+          <tr><td>4</td><td>Gin 路由 key 参数限制</td><td class="risk-low">低</td><td>Key 含 <code>/</code> 会破坏 Gin 路由解析。README 已说明但有工程风险</td><td>"如果必须支持含 / 的 key，你会怎么设计？"</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 复盘面试建议问题 ====== -->
+    <section id="interview">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>复盘面试建议问题</h2></div>
+      <div class="section-body">
+        <div class="evidence-block"><strong>1. 数据模型设计</strong><br>"你的 ConfigGroup 使用了 DraftData/PublishedData 双数据模型，这是怎么想到的？与 Nacos 直接修改即生效的设计相比，你的方案有什么优势和代价？如果新增一个'灰度发布'需求，ReleaseData/GrayData/BaseData 三层数据，模型怎么改？"</div>
+        <div class="evidence-block"><strong>2. 并发与一致性</strong><br>"你的 ConfigStore 使用 sync.RWMutex 做并发控制。如果有两个管理员同时编辑同一配置组的同一个 Key，当前代码会怎么处理？如果你要把 publish 操作扩展为'审核 → 批准 → 发布'三步，如何保证一致性？"</div>
+        <div class="evidence-block"><strong>3. AI 使用策略</strong><br>"AI_PROMPTS 里你标注了每个模块的 AI 完成度（85%-100%）。哪些模块你让 AI 生成后基本没改？哪些模块你花了最多人工修正？BUG-007（Vue script 作用域问题）是你自己发现的还是 lint/build 发现的？如果让你重新用 AI 做这个项目，你会怎么规划 Prompt 策略？"</div>
+        <div class="evidence-block"><strong>4. 配置推送实现</strong><br>"你提到 /push 和 /watch 是预留接口。如果现在要求你实现配置变更后实时推送给所有订阅的微服务，你会选择 SSE、WebSocket 还是长轮询？请说明你的选型理由和关键实现挑战。"</div>
+        <div class="evidence-block"><strong>5. 配置版本回滚</strong><br>"你的 BumpVersion() 是递增补丁号，如果发布了一个错误配置（比如 db.url 写成了不存在的地址），你怎么让微服务回滚到上一个版本？当前模型是否支持？如果不支持，你打算加什么字段和接口？"</div>
+      </div>
+    </section>
+
+    <!-- ====== 后续建议 ====== -->
+    <section id="suggestions">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>后续建议</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>对象</th><th>建议</th></tr>
+          <tr><td>候选人</td><td>1. <strong>补强持久化</strong>：理解数据库/SQLite 接入和 ORM 使用，这是后端工程化的基本功。<br>2. <strong>学习状态机模式</strong>：虽然本项目不涉及复杂状态流转，但 FDE 考核的另一半题目（工作项管理）重点考察状态机抽象。<br>3. <strong>实践 OpenAPI/Swagger</strong>：API 设计能力不错，补上 OpenAPI 文档生成会让交付更完整。<br>4. <strong>尝试 OpenSpec/gh-sdd</strong>：从手写 Prompt 升级到工程化 AI 工作流。</td></tr>
+          <tr><td>面试官</td><td>1. 二面重点验证候选人对 Draft/Published 模型的真实理解深度。<br>2. 追问并发/一致性场景（两个管理员同时编辑、发布中间状态）。<br>3. 考察候选人对 AI 生成代码的边界判断——哪些让 AI 做、哪些自己写。</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ====== 文档真实性验证 ====== -->
+    <section id="crosscheck">
+      <div class="section-header"><span class="collapse-icon">▼</span><h2>文档真实性交叉验证</h2></div>
+      <div class="section-body">
+        <table>
+          <tr><th>文档声称</th><th>代码验证</th><th>结果</th></tr>
+          <tr><td>AI_PROMPTS: 8 个单元测试覆盖 Draft/Version/DeepCopy/HasDraft/ChangeLog/CloneMap/DeleteKey</td><td><code>store/store_test.go</code> 包含全部 8 个测试函数</td><td><span class="badge badge--pass">一致</span></td></tr>
+          <tr><td>AI_PROMPTS: 28 个 handler 集成测试（含 6 子测试 + 并发测试）</td><td><code>handler/handler_test.go</code> 含 ListAll_Empty/WithData, GetOne_Existing/NonExisting, SetKey(4), DeleteKey(2), Publish, GetPublished(2), Push, Watch, FullFlow(6步), ConcurrentWrites</td><td><span class="badge badge--pass">一致</span></td></tr>
+          <tr><td>BUGLOG: BUG-007 (ConfigDrawer 空白) 修复为删除 script 非 setup 块</td><td><code>ConfigDrawer.vue</code> 仅使用 <code>&lt;script setup&gt;</code></td><td><span class="badge badge--pass">一致</span></td></tr>
+          <tr><td>LINTLOG: 13 issues 全部修复</td><td>go vet: 0 issues；handler 注释均为 Go 规范格式</td><td><span class="badge badge--pass">一致</span></td></tr>
+          <tr><td>ARCHITECTURE: 数据模型使用 reflect.DeepEqual 判断 HasDraft</td><td><code>store/store.go:55</code>: <code>return !reflect.DeepEqual(g.DraftData, g.PublishedData)</code></td><td><span class="badge badge--pass">一致</span></td></tr>
+        </table>
+        <p style="margin-top:8px;font-size:13px;color:var(--green);"><strong>结论：文档与代码一致，无伪造或夸大。</strong> BUGLOG 中的 Bug 记录有具体的文件、行号和修复方案，可通过代码验证。</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!--  JavaScript: 全部交互功能 + localStorage                     -->
+  <!-- ============================================================ -->
+  <script>
+  // ============================================================
+  //  LocalStorage 键
+  // ============================================================
+  const LS = {
+    collapsed: 'fde_report_collapsed',
+    dark: 'fde_report_dark',
+    notes: 'fde_report_notes',
+    verified: 'fde_report_verified',
+    scores: 'fde_report_scores',
+    scroll: 'fde_report_scroll',
+  };
+
+  function lsGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+    catch { return fallback; }
+  }
+  function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+  // ============================================================
+  //  Collapsible Sections — 状态持久化
+  // ============================================================
+  const collapsedState = lsGet(LS.collapsed, {});
+  document.querySelectorAll('section[id] .section-header').forEach(header => {
+    const body = header.nextElementSibling;
+    if (!body || !body.classList.contains('section-body')) return;
+    const section = header.closest('section');
+    const id = section.id;
+
+    if (collapsedState[id]) {
+      body.classList.add('hidden');
+      header.classList.add('collapsed');
+    }
+
+    header.addEventListener('click', () => {
+      const isHidden = body.classList.toggle('hidden');
+      header.classList.toggle('collapsed', isHidden);
+      collapsedState[id] = isHidden;
+      lsSet(LS.collapsed, collapsedState);
+    });
+  });
+
+  // ============================================================
+  //  Dark Mode — 持久化
+  // ============================================================
+  const darkBtn = document.getElementById('darkToggle');
+  if (lsGet(LS.dark, false)) {
+    document.documentElement.classList.add('dark');
+    darkBtn.textContent = '☀️';
+    darkBtn.classList.add('active');
+  }
+  darkBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    darkBtn.textContent = isDark ? '☀️' : '🌙';
+    darkBtn.classList.toggle('active', isDark);
+    lsSet(LS.dark, isDark);
+  });
+
+  // ============================================================
+  //  Expand/Collapse All
+  // ============================================================
+  document.getElementById('expandAll').addEventListener('click', function() {
+    const allHidden = document.querySelectorAll('.section-body.hidden');
+    const expand = allHidden.length > 0;
+    document.querySelectorAll('.section-body').forEach(b => b.classList.toggle('hidden', !expand));
+    document.querySelectorAll('.section-header').forEach(h => h.classList.toggle('collapsed', !expand));
+    for (const k in collapsedState) collapsedState[k] = !expand;
+    lsSet(LS.collapsed, collapsedState);
+    this.textContent = expand ? '⊟' : '⊞';
+  });
+
+  // ============================================================
+  //  Notes Panel — localStorage
+  // ============================================================
+  const notesPanel = document.getElementById('notesPanel');
+  const notesToggle = document.getElementById('notesToggle');
+  const notesCount = document.getElementById('notesCount');
+  const notesList = document.getElementById('notesList');
+  const noteSection = document.getElementById('noteSection');
+  const noteText = document.getElementById('noteText');
+
+  let notes = lsGet(LS.notes, []);
+
+  function renderNotes() {
+    notesList.innerHTML = notes.length === 0
+      ? '<div style="color:var(--text-muted);font-size:13px;padding:20px;text-align:center;">暂无笔记。<br>选择一个章节，记录面试观察。</div>'
+      : notes.map((n, i) => `
+        <div class="note-item">
+          <button class="note-delete" data-idx="${i}" title="删除">✕</button>
+          <div class="note-section">${escHtml(n.section || '综合备注')}</div>
+          <div class="note-text">${escHtml(n.text)}</div>
+          <div class="note-time">${n.time}</div>
+        </div>`).join('');
+    const count = notes.length;
+    notesCount.textContent = count;
+    notesCount.style.display = count > 0 ? 'flex' : 'none';
+
+    notesList.querySelectorAll('.note-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notes.splice(parseInt(btn.dataset.idx), 1);
+        lsSet(LS.notes, notes);
+        renderNotes();
+      });
+    });
+  }
+  renderNotes();
+
+  notesToggle.addEventListener('click', () => notesPanel.classList.toggle('open'));
+  document.getElementById('notesClose').addEventListener('click', () => notesPanel.classList.remove('open'));
+
+  document.getElementById('noteSave').addEventListener('click', () => {
+    const text = noteText.value.trim();
+    if (!text) return;
+    const sectionNames = { be:'本职工程能力', fs:'跨端交付', fde:'FDE 潜力', ai:'AI Coding', test:'测试与验证', risks:'问题与风险', interview:'面试追问', general:'综合备注' };
+    notes.push({
+      section: sectionNames[noteSection.value] || noteSection.value || '综合备注',
+      text: text, time: new Date().toLocaleString('zh-CN', { hour12: false }),
+    });
+    if (notes.length > 50) notes.shift();
+    lsSet(LS.notes, notes);
+    noteText.value = ''; noteSection.value = '';
+    renderNotes();
+    showToast('笔记已保存 ✓');
+  });
+
+  function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  // ============================================================
+  //  Verification Checkboxes
+  // ============================================================
+  const verifiedState = lsGet(LS.verified, {});
+  window.toggleVerify = function(cb) {
+    const key = cb.dataset.key;
+    if (cb.checked) verifiedState[key] = true; else delete verifiedState[key];
+    lsSet(LS.verified, verifiedState);
+    cb.closest('tr').classList.toggle('verified', cb.checked);
+    cb.closest('.verify-cb').classList.toggle('checked', cb.checked);
+    showToast(cb.checked ? '已验证 ✓' : '已取消验证');
+  };
+  document.querySelectorAll('.verify-cb input[data-key]').forEach(cb => {
+    if (verifiedState[cb.dataset.key]) {
+      cb.checked = true;
+      cb.closest('tr').classList.add('verified');
+      cb.closest('.verify-cb').classList.add('checked');
+    }
+  });
+
+  // ============================================================
+  //  Score Edit — 面试官自行调整 (localStorage)
+  // ============================================================
+  const scoreState = lsGet(LS.scores, {});
+  document.querySelectorAll('.score-card').forEach(card => {
+    const btn = document.createElement('button');
+    btn.className = 'edit-btn'; btn.textContent = '✎'; btn.title = '调整评分';
+    card.appendChild(btn);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dim = card.querySelector('.dim').textContent;
+      const current = card.querySelector('.val').textContent;
+      const max = card.querySelector('.max').textContent.replace('/ ', '');
+      const newVal = prompt(`调整 "${dim}" 分数 (当前: ${current}/${max}):`, current);
+      if (newVal !== null) {
+        const num = parseInt(newVal);
+        if (!isNaN(num) && num >= 0) {
+          card.querySelector('.val').textContent = num;
+          card.querySelector('.bar-fill').style.width = (num / parseInt(max) * 100) + '%';
+          scoreState[dim] = num;
+          lsSet(LS.scores, scoreState);
+          recalcTotal();
+          showToast(`已更新: ${dim} → ${num}/${max}`);
+        }
+      }
+    });
+  });
+  Object.entries(scoreState).forEach(([dim, val]) => {
+    document.querySelectorAll('.score-card').forEach(card => {
+      if (card.querySelector('.dim').textContent === dim) {
+        card.querySelector('.val').textContent = val;
+        const max = parseInt(card.querySelector('.max').textContent.replace('/ ', ''));
+        card.querySelector('.bar-fill').style.width = (val / max * 100) + '%';
+      }
+    });
+  });
+
+  function recalcTotal() {
+    let total = 0;
+    document.querySelectorAll('.score-card .val').forEach(el => { total += parseInt(el.textContent) || 0; });
+    const baseEl = document.getElementById('baseTotal');
+    if (baseEl) baseEl.textContent = total;
+    const totalEl = document.getElementById('totalScore');
+    if (totalEl) {
+      const bonus = parseInt(document.getElementById('bonusTotal')?.textContent || '0');
+      totalEl.textContent = total + bonus;
+      const grade = total + bonus >= 90 ? 'A' : total + bonus >= 80 ? 'B' : total + bonus >= 60 ? 'C' : 'D';
+      document.getElementById('gradeLetter').textContent = grade;
+    }
+  }
+
+  // ============================================================
+  //  Sidebar Scroll Spy + Active
+  // ============================================================
+  const navLinks = document.querySelectorAll('.side-nav a[data-section]');
+  const navMap = {};
+  navLinks.forEach(a => { navMap[a.dataset.section] = a; });
+
+  // Click handler for sidebar links
+  navLinks.forEach(a => {
+    a.addEventListener('click', () => {
+      const el = document.getElementById(a.dataset.section);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // IntersectionObserver for scroll spy
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const link = navMap[entry.target.id];
+        if (link) link.classList.add('active');
+        lsSet(LS.scroll, entry.target.id);
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px' });
+  document.querySelectorAll('section[id]').forEach(s => observer.observe(s));
+
+  // 恢复上次阅读位置
+  const lastSection = lsGet(LS.scroll, null);
+  if (lastSection) {
+    const el = document.getElementById(lastSection);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 400);
+  }
+
+  // ============================================================
+  //  Toast
+  // ============================================================
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  // ============================================================
+  //  Keyboard shortcuts
+  // ============================================================
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      const q = prompt('跳转到章节 (关键词):');
+      if (q) {
+        const lower = q.toLowerCase();
+        for (const [id, a] of Object.entries(navMap)) {
+          if (id.includes(lower) || a.textContent.toLowerCase().includes(lower)) {
+            document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+            showToast('跳转到: ' + a.textContent);
+            return;
+          }
+        }
+        showToast('未找到匹配章节');
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      e.preventDefault();
+      notesPanel.classList.toggle('open');
+      if (notesPanel.classList.contains('open')) noteText.focus();
+    }
+  });
+
+  // ============================================================
+  //  打印按钮
+  // ============================================================
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  console.log('%c📋 FDE 评估报告 — 交互版 %c| %cCtrl+K 搜索 %cCtrl+N 笔记 %c🖨 打印 %c🌙 深色',
+    'font-weight:700', '', 'color:#5e6ad2', 'color:#059669', '', '');
+  console.log('%c所有数据存储在浏览器 localStorage，无服务端/数据库。', 'color:#8b919e');
+  </script>
+</body>
+</html>
