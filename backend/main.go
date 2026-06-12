@@ -56,6 +56,77 @@ func initSeedData(cs *store.ConfigStore) {
 				"log.level":   "info",
 			},
 		},
+		// === 火控雷达 ===
+		{
+			service: "radar-service",
+			env:     "dev",
+			data: map[string]string{
+				"radar.scan_rate_hz": "60",
+				"radar.range_km":     "150",
+				"radar.max_targets":  "32",
+				"radar.mode":         "search",
+				"radar.band":         "X",
+			},
+		},
+		{
+			service: "radar-service",
+			env:     "prod",
+			data: map[string]string{
+				"radar.scan_rate_hz": "120",
+				"radar.range_km":     "300",
+				"radar.max_targets":  "128",
+				"radar.mode":         "track",
+				"radar.band":         "C",
+			},
+		},
+		// === 光电传感器 ===
+		{
+			service: "sensor-service",
+			env:     "dev",
+			data: map[string]string{
+				"sensor.wavelength_nm": "1550",
+				"sensor.fps":           "30",
+				"sensor.resolution":    "1280x720",
+				"sensor.sensitivity":   "5",
+				"sensor.mode":          "day",
+			},
+		},
+		{
+			service: "sensor-service",
+			env:     "prod",
+			data: map[string]string{
+				"sensor.wavelength_nm": "8000",
+				"sensor.fps":           "60",
+				"sensor.resolution":    "1920x1080",
+				"sensor.sensitivity":   "8",
+				"sensor.mode":          "thermal",
+			},
+		},
+		// === 船舶航海 ===
+		{
+			service: "navigation-service",
+			env:     "dev",
+			data: map[string]string{
+				"nav.update_interval_s": "5",
+				"nav.speed_knots":       "20",
+				"nav.heading_deg":       "0",
+				"nav.destination":       "Shanghai",
+				"nav.auto_pilot":        "false",
+				"nav.waypoints":         "PortA,PortB,PortC",
+			},
+		},
+		{
+			service: "navigation-service",
+			env:     "prod",
+			data: map[string]string{
+				"nav.update_interval_s": "2",
+				"nav.speed_knots":       "35",
+				"nav.heading_deg":       "180",
+				"nav.destination":       "Singapore",
+				"nav.auto_pilot":        "true",
+				"nav.waypoints":         "Shanghai,Xiamen,Singapore",
+			},
+		},
 	}
 
 	for _, s := range seeds {

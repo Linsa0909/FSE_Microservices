@@ -8,18 +8,6 @@
           <h1>分布式配置中心</h1>
           <p>按服务和环境隔离配置，支持草稿编辑、发布生效、示例微服务启动拉取和推送接口预留。</p>
         </div>
-        <div class="overview-actions">
-          <button class="refresh-button" @click="fetchData">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" :class="{ spinning: refreshing }">
-              <path d="M13.65 2.35A7.96 7.96 0 008 0a8 8 0 100 16 7.96 7.96 0 005.65-2.35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            刷新
-          </button>
-          <button class="primary-button" @click="openCreateDialog()">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            新建配置组
-          </button>
-        </div>
       </section>
 
       <!-- Dashboard -->
@@ -29,16 +17,35 @@
             <h2>Dashboard</h2>
             <p>配置中心运行概览、发布风险和环境覆盖情况。</p>
           </div>
-          <button class="secondary-button" @click="showPendingOnly">
-            查看待发布
-          </button>
+          <div class="dashboard-head-actions">
+            <span class="dash-time">{{ lastRefresh }}</span>
+            <button class="secondary-button-sm" @click="fetchData" title="手动刷新">
+              <el-icon :class="{ spinning: refreshing }"><Refresh /></el-icon>
+            </button>
+            <button class="secondary-button" @click="showPendingOnly">
+              查看待发布
+            </button>
+            <button class="secondary-button-sm" @click="showHelp = true" title="帮助">
+              <el-icon><QuestionFilled /></el-icon>
+            </button>
+            <button class="collapse-btn" @click="dashboardCollapsed = !dashboardCollapsed" :title="dashboardCollapsed ? '展开 Dashboard' : '收起 Dashboard'">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" :class="{ rotated: dashboardCollapsed }">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div class="stats-grid">
+        <div v-show="!dashboardCollapsed" class="stats-grid">
           <article class="stat-card">
             <span class="stat-label">配置组</span>
             <strong>{{ overviewStats.total }}</strong>
             <small>service + env 隔离</small>
+          </article>
+          <article class="stat-card published-card">
+            <span class="stat-label">已发布</span>
+            <strong>{{ overviewStats.published }}</strong>
+            <small>{{ overviewStats.published > 0 ? '所有配置项已同步' : '暂无已发布配置' }}</small>
           </article>
           <article class="stat-card warning-card">
             <span class="stat-label">待发布</span>
@@ -50,14 +57,9 @@
             <strong>{{ overviewStats.envs }}</strong>
             <small>dev / test / prod / 自定义</small>
           </article>
-          <article class="stat-card">
-            <span class="stat-label">刷新状态</span>
-            <strong>{{ lastRefresh }}</strong>
-            <small>每 5 秒自动同步</small>
-          </article>
         </div>
 
-        <div class="pending-strip">
+        <div v-show="!dashboardCollapsed" class="pending-strip">
           <span class="pending-title">待发布队列</span>
           <template v-if="pendingConfigs.length > 0">
             <button
@@ -73,112 +75,131 @@
         </div>
       </section>
 
-      <!-- Tab navigation -->
-      <nav class="workspace-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="tab-button"
-          :class="{ active: activeTab === tab.key }"
-          @click="activeTab = tab.key"
-        >
-          <svg v-if="tab.key === 'configs'" width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
-            <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
-            <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
-            <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <svg v-else-if="tab.key === 'services'" width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="11" cy="4" r="2" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="5" cy="12" r="2" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="11" cy="12" r="2" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="5" y1="6" x2="5" y2="10" stroke="currentColor" stroke-width="1"/>
-            <line x1="11" y1="6" x2="11" y2="10" stroke="currentColor" stroke-width="1"/>
-            <line x1="7" y1="4" x2="9" y2="4" stroke="currentColor" stroke-width="1"/>
-            <line x1="7" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1"/>
-          </svg>
-          <svg v-else width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="2" y1="7" x2="14" y2="7" stroke="currentColor" stroke-width="1"/>
-            <line x1="7" y1="7" x2="7" y2="14" stroke="currentColor" stroke-width="1"/>
-          </svg>
-          {{ tab.label }}
-        </button>
-      </nav>
+      <!-- Workspace box: tabs + content inside the same border -->
+      <section class="workspace" :class="{ 'config-workspace': activeTab === 'configs' }">
+        <nav class="workspace-tabs">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            class="tab-button"
+            :class="{ active: activeTab === tab.key }"
+            @click="activeTab = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+          <div class="tab-spacer"></div>
+          <button class="secondary-button-sm" @click="openCreateDialog()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            新建配置组
+          </button>
+        </nav>
 
-      <!-- Tab: 配置管理 -->
-      <section v-if="activeTab === 'configs'" class="workspace config-workspace">
-        <Sidebar
-          v-if="isDesktop"
-          :configs="configs"
-          :selectedEnv="filterState.env"
-          :selectedStatus="filterState.status"
-          @select-env="onSidebarEnv"
-          @select-status="onSidebarStatus"
-        />
+        <!-- Tab: 配置管理 -->
+        <div v-if="activeTab === 'configs'" class="workspace-body config-layout">
+          <Sidebar
+            v-if="isDesktop"
+            :configs="configs"
+            :selectedService="filterState.service"
+            :selectedEnv="filterState.env"
+            :selectedStatus="filterState.status"
+            @select-service="onSidebarService"
+            @select-env="onSidebarEnv"
+            @select-status="onSidebarStatus"
+          />
 
-        <div class="config-main">
-          <div class="workspace-title-row">
-            <div>
-              <h2>配置管理</h2>
-              <p>配置新增、修改、删除和发布只在这里完成，微服务状态页不承载配置编辑。</p>
+          <div class="config-main">
+            <div class="panel-head">
+              <div>
+                <h2>配置管理</h2>
+                <p>配置新增、修改、删除和发布只在这里完成，微服务状态页不承载配置编辑。</p>
+              </div>
             </div>
-            <button class="secondary-button" @click="openCreateDialog()">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              新建配置组
-            </button>
+            <TopBar
+              :search="filterState.search"
+              @update:search="filterState.search = $event"
+            />
+            <ConfigTable
+              :rows="filteredConfigs"
+              :loading="loading"
+              :selectedRow="selectedRow"
+              @select="openDetail"
+            />
           </div>
 
-          <TopBar
-            :search="filterState.search"
-            :env="filterState.env"
-            :status="filterState.status"
-            :lastRefresh="lastRefresh"
-            :refreshing="refreshing"
-            @manual-refresh="fetchData"
-            @update:search="filterState.search = $event"
-            @update:env="filterState.env = $event"
-            @update:status="filterState.status = $event"
-          />
-          <ConfigTable
-            :rows="filteredConfigs"
-            :loading="loading"
-            :selectedRow="selectedRow"
-            @select="openDetail"
-          />
+          <template v-if="selectedRow">
+            <ConfigDrawer
+              v-if="isDesktop"
+              :service="selectedService"
+              :env="selectedEnv"
+              :panel="true"
+              @close="closeDetail"
+              @published="fetchData"
+            />
+            <ConfigDrawer
+              v-else
+              v-model="drawerVisible"
+              :service="selectedService"
+              :env="selectedEnv"
+              @close="closeDetail"
+              @published="fetchData"
+            />
+          </template>
         </div>
 
-        <template v-if="selectedRow">
-          <ConfigDrawer
-            v-if="isDesktop"
-            :service="selectedService"
-            :env="selectedEnv"
-            :panel="true"
-            @close="closeDetail"
-            @published="fetchData"
-          />
-          <ConfigDrawer
-            v-else
-            v-model="drawerVisible"
-            :service="selectedService"
-            :env="selectedEnv"
-            @close="closeDetail"
-            @published="fetchData"
-          />
-        </template>
-      </section>
+        <!-- Tab: 微服务状态 -->
+        <div v-else-if="activeTab === 'services'" class="workspace-body">
+          <ServiceStatus :configs="configs" />
+        </div>
 
-      <!-- Tab: 微服务状态 -->
-      <section v-else-if="activeTab === 'services'" class="workspace">
-        <ServiceStatus :configs="configs" />
-      </section>
-
-      <!-- Tab: 环境与推送 -->
-      <section v-else class="workspace">
-        <EnvironmentPanel :configs="configs" />
+        <!-- Tab: 环境与推送 -->
+        <div v-else class="workspace-body">
+          <EnvironmentPanel :configs="configs" />
+        </div>
       </section>
     </div>
+
+    <!-- Help dialog -->
+    <el-dialog v-model="showHelp" title="操作指南" width="480px">
+      <div class="help-content">
+        <h4>📖 核心概念</h4>
+        <div class="help-defs">
+          <div class="help-def">
+            <strong>配置组 (Config Group)</strong>
+            <p>一个 <code>service:env</code> 组合就是一个配置组。它是配置隔离的最小单元——不同服务、不同环境的配置互不影响。<br/>例如：<code>radar-service:dev</code> 和 <code>radar-service:prod</code> 是两个独立的配置组，各自的 key-value 互不干扰。</p>
+          </div>
+          <div class="help-def">
+            <strong>配置项 (Config Item)</strong>
+            <p>配置组内的每一对 key-value 就是一个配置项。<br/>例如 <code>radar-service:dev</code> 有 5 个配置项：<code>radar.scan_rate_hz=60</code>、<code>radar.range_km=150</code> 等。</p>
+          </div>
+        </div>
+        <p class="help-note">侧栏底部的计数 = 配置组数量，Detail 面板显示的是该配置组内的配置项列表。</p>
+
+        <h4>Dashboard</h4>
+        <p>页面顶部 Dashboard 展示配置组总数、已发布/待发布数量、环境覆盖；点击待发布队列可直接打开对应配置组。Dashboard 右上角可折叠。</p>
+
+        <h4>配置管理</h4>
+        <p>左侧选择服务/环境/状态 → 中间列表点击配置组行 → 右侧展开 Diff 编辑面板。</p>
+
+        <h4>新建配置组</h4>
+        <p>点击 Tab 栏右侧"新建配置组" → 填写服务名和环境 → 从模板选择初始配置项；也可选"自定义"手动输入。</p>
+
+        <h4>编辑 / 新增 / 删除配置项</h4>
+        <p>在右侧面板的<strong>草稿</strong>列点击值即可编辑（回车保存、Esc 取消）；面板顶部独立表单用于新增配置项；点右侧删除图标移除。</p>
+
+        <h4>发布配置</h4>
+        <p>所有草稿修改完成后，点击面板底部 <strong>发布</strong> 按钮 → DraftData 覆盖 PublishedData → 版本号 +1 → 微服务下次重启即可读到新配置。</p>
+        <p class="help-note">没有草稿变更时发布按钮禁用；有未发布变更时高亮显示变更数量。</p>
+
+        <h4>微服务状态</h4>
+        <p>探测各领域服务的 <code>/health</code> 端点，验证服务是否成功从配置中心拉取了配置。在线 = <code>config_from_center: true</code>。</p>
+
+        <h4>自动刷新</h4>
+        <p>页面每 <strong>5 秒</strong> 自动拉取后端最新数据，Dashboard 右上角显示最近刷新时间。</p>
+      </div>
+      <template #footer>
+        <el-button @click="showHelp = false">知道了</el-button>
+      </template>
+    </el-dialog>
 
     <!-- Create config group dialog -->
     <el-dialog v-model="createVisible" title="新建配置组" width="480px" class="create-dialog">
@@ -227,6 +248,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh, QuestionFilled } from '@element-plus/icons-vue'
 import { getAllConfigs, setKey } from './api/configService.js'
 import Sidebar from './components/Sidebar.vue'
 import TopBar from './components/TopBar.vue'
@@ -260,7 +282,7 @@ const lastRefresh = ref('--:--:--')
 let intervalId = null
 
 // === Filters ===
-const filterState = ref({ search: '', env: '', status: '' })
+const filterState = ref({ search: '', service: '', env: '', status: '' })
 
 // === Tabs ===
 const activeTab = ref('configs')
@@ -278,6 +300,8 @@ const selectedRow = ref(null)
 
 // === Create dialog ===
 const createVisible = ref(false)
+const dashboardCollapsed = ref(false)
+const showHelp = ref(false)
 const creating = ref(false)
 const newGroup = ref({ service: '', env: 'dev', template: 'db.url', key: 'db.url', value: 'localhost:3306' })
 const configTemplates = [
@@ -297,6 +321,9 @@ const filteredConfigs = computed(() => {
     const q = f.search.toLowerCase()
     list = list.filter(c => c.service.toLowerCase().includes(q))
   }
+  if (f.service) {
+    list = list.filter(c => c.service === f.service)
+  }
   if (f.env) {
     list = list.filter(c => c.env === f.env)
   }
@@ -307,6 +334,16 @@ const filteredConfigs = computed(() => {
     })
   }
 
+  // 稳定排序: service 字母序 → env 固定顺序 (每次轮询结果一致)
+  const envOrder = { dev: 0, test: 1, prod: 2 }
+  list = [...list].sort((a, b) => {
+    const sn = a.service.localeCompare(b.service)
+    if (sn !== 0) return sn
+    const ea = envOrder[a.env] ?? 99
+    const eb = envOrder[b.env] ?? 99
+    return ea - eb
+  })
+
   return list
 })
 
@@ -316,6 +353,7 @@ const overviewStats = computed(() => {
   return {
     total: configs.value.length,
     pending,
+    published: configs.value.length - pending,
     envs: envSet.size,
   }
 })
@@ -342,8 +380,15 @@ function updateLastRefresh() {
   lastRefresh.value = now.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
+function onSidebarService(svc) {
+  filterState.value.service = svc
+  filterState.value.env = ''
+  filterState.value.status = ''
+}
+
 function onSidebarEnv(env) {
   filterState.value.env = env
+  filterState.value.service = ''
 }
 
 function onSidebarStatus(status) {
@@ -486,8 +531,7 @@ onUnmounted(() => {
 }
 
 .primary-button,
-.secondary-button,
-.refresh-button {
+.secondary-button {
   height: 34px;
   display: inline-flex;
   align-items: center;
@@ -514,15 +558,13 @@ onUnmounted(() => {
   border-color: var(--color-primary-hover);
 }
 
-.secondary-button,
-.refresh-button {
+.secondary-button {
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.82);
 }
 
-.secondary-button:hover,
-.refresh-button:hover {
+.secondary-button:hover {
   color: var(--text-primary);
   border-color: var(--border-hover);
   background: var(--bg-surface);
@@ -556,6 +598,53 @@ onUnmounted(() => {
 .dashboard-head p {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+}
+
+.dashboard-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dash-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-placeholder);
+  font-variant-numeric: tabular-nums;
+  margin-right: 2px;
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+  margin-left: 4px;
+}
+
+.collapse-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.collapse-btn svg {
+  transition: transform 0.2s;
+}
+
+.collapse-btn svg.rotated {
+  transform: rotate(-90deg);
+}
+
+.published-card {
+  border-color: rgba(33, 154, 128, 0.28);
+  background: linear-gradient(180deg, #fff, var(--color-published-bg));
 }
 
 .stats-grid {
@@ -640,51 +729,77 @@ onUnmounted(() => {
   font-size: var(--font-size-xs);
 }
 
-/* Tab navigation */
+/* Tab navigation — inside workspace as header */
 .workspace-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.74);
-  padding: 4px;
-  width: fit-content;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: #fbfbfc;
+  padding: 0 8px;
   flex-shrink: 0;
 }
 
 .tab-button {
-  height: 34px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
 }
 
 .tab-button:hover {
   color: var(--text-primary);
-  background: var(--bg-subtle);
 }
 
 .tab-button.active {
   color: var(--color-primary);
-  background: var(--bg-surface);
-  border-color: var(--border-subtle);
-  box-shadow: var(--shadow-sm);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
 }
 
-/* Workspace */
+.tab-spacer { flex: 1; }
+
+.secondary-button-sm {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  margin-right: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.secondary-button-sm:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+/* Workspace — contains tabs + body */
 .workspace {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -692,7 +807,13 @@ onUnmounted(() => {
   box-shadow: var(--shadow-sm);
 }
 
-.config-workspace {
+.workspace-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.config-layout {
   display: flex;
 }
 
@@ -704,24 +825,24 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.workspace-title-row {
+.panel-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 16px 14px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, #fff, #fbfcff);
+  flex-shrink: 0;
 }
 
-.workspace-title-row h2 {
-  font-size: 17px;
-  font-weight: 700;
+.panel-head h2 {
+  font-size: 16px;
+  font-weight: 650;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
-.workspace-title-row p {
+.panel-head p {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
@@ -750,6 +871,18 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* Help dialog */
+.help-content { font-family: var(--font-family); color: var(--text-primary); }
+.help-content h4 { font-size: var(--font-size-base); font-weight: 600; margin: 16px 0 4px; color: var(--text-primary); }
+.help-content h4:first-child { margin-top: 0; }
+.help-content p { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 2px 0 8px; line-height: 1.6; }
+.help-defs { display: flex; flex-direction: column; gap: 12px; margin: 8px 0 12px; }
+.help-def { background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 14px; }
+.help-def strong { font-size: var(--font-size-base); color: var(--color-primary); display: block; margin-bottom: 4px; }
+.help-def p { margin: 0 !important; color: var(--text-secondary) !important; line-height: 1.7 !important; }
+.help-def code { background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 1px 5px; border-radius: 3px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; color: var(--text-primary); }
+.help-note { color: var(--text-placeholder) !important; font-style: italic; }
+
 /* Animations */
 .spinning {
   animation: spin 0.8s linear infinite;
@@ -772,8 +905,6 @@ onUnmounted(() => {
   .stats-grid { grid-template-columns: 1fr; }
   .dashboard-head { flex-direction: column; }
   .pending-strip { flex-wrap: wrap; }
-  .workspace-tabs { width: 100%; overflow-x: auto; }
-  .tab-button { flex: 1; white-space: nowrap; }
-  .workspace-title-row { flex-direction: column; }
+  .tab-button { white-space: nowrap; }
 }
 </style>

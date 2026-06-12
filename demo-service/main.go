@@ -1,117 +1,208 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"demo-service/internal/navigation"
+	"demo-service/internal/radar"
+	"demo-service/internal/sensor"
+	"demo-service/pkg/configclient"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ConfigClient 配置客户端 SDK 雏形
-type ConfigClient struct {
-	baseURL    string
-	service    string
-	env        string
-	httpClient *http.Client
-	config     map[string]string
-	maxRetries int
-	retryDelay time.Duration
-}
-
-// NewConfigClient 创建配置客户端
-func NewConfigClient(baseURL, service, env string) *ConfigClient {
-	return &ConfigClient{
-		baseURL:    baseURL,
-		service:    service,
-		env:        env,
-		httpClient: &http.Client{Timeout: 5 * time.Second},
-		config:     make(map[string]string),
-		maxRetries: 5,
-		retryDelay: time.Second,
-	}
-}
-
-// pullConfig 拉取线上配置（含重试机制，容忍后端未就绪）
-func (c *ConfigClient) pullConfig() error {
-	url := fmt.Sprintf("%s/api/configs/%s/%s/published", c.baseURL, c.service, c.env)
-	log.Printf("[ConfigClient] 正在拉取配置: %s", url)
-
-	var lastErr error
-	for attempt := 1; attempt <= c.maxRetries; attempt++ {
-		resp, err := c.httpClient.Get(url)
-		if err != nil {
-			lastErr = fmt.Errorf("拉取配置失败: %w", err)
-			if attempt < c.maxRetries {
-				log.Printf("[ConfigClient] 第 %d/%d 次尝试失败: %v, %s 后重试...", attempt, c.maxRetries, err, c.retryDelay)
-				time.Sleep(c.retryDelay)
-				continue
-			}
-			return lastErr
-		}
-
-		result := struct {
-			Config map[string]string `json:"config"`
-		}{}
-		err = json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
-
-		if err != nil {
-			lastErr = fmt.Errorf("解析配置失败: %w", err)
-			if attempt < c.maxRetries {
-				log.Printf("[ConfigClient] 第 %d/%d 次尝试解析失败: %v, %s 后重试...", attempt, c.maxRetries, err, c.retryDelay)
-				time.Sleep(c.retryDelay)
-				continue
-			}
-			return lastErr
-		}
-
-		c.config = result.Config
-		log.Printf("[ConfigClient] 拉取成功 (第 %d 次尝试): %d 个配置项", attempt, len(c.config))
-		for k, v := range c.config {
-			log.Printf("  %s = %s", k, v)
-		}
-		return nil
-	}
-	return fmt.Errorf("拉取配置失败 (已重试 %d 次): %w", c.maxRetries, lastErr)
-}
-
-// GetConfig 获取本地缓存的配置
-func (c *ConfigClient) GetConfig() map[string]string {
-	return c.config
-}
-
 func main() {
-	client := NewConfigClient("http://localhost:8080", "order-service", "dev")
+	serviceType := getEnv("SERVICE_TYPE", "default")
+	serviceName := getEnv("CONFIG_SERVICE", "order-service")
+	env := getEnv("CONFIG_ENV", "dev")
+	configURL := getEnv("CONFIG_URL", "http://localhost:8080")
 
-	// 启动时拉取配置
-	log.Println("[demo-service] 启动中，拉取配置...")
-	if err := client.pullConfig(); err != nil {
-		log.Printf("[demo-service] ⚠️ %v — 使用默认端口 3000", err)
+	log.Printf("[demo-service] 启动中 — type=%s service=%s env=%s config-center=%s",
+		serviceType, serviceName, env, configURL)
+
+	// 1. 拉取配置
+	client := configclient.New(configURL, serviceName, env)
+	if err := client.PullConfig(); err != nil {
+		log.Printf("[demo-service] ⚠️ %v — 使用全部默认配置", err)
 	}
 
-	cfg := client.GetConfig()
-	port := cfg["server.port"]
-	if port == "" {
-		port = "3000"
-	}
+	// 2. 确定端口
+	port := determinePort(serviceType)
 
-	// 使用 Gin 框架启动 HTTP 服务
+	// 3. 启动 Gin
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(corsMiddleware())
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"service": "order-service",
-			"config":  client.GetConfig(),
-		})
-	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	log.Printf("[demo-service] ✅ 服务启动于 :%s", port)
+	// 4. 按服务类型分发
+	switch serviceType {
+	case "radar":
+		runRadarService(ctx, r, client)
+	case "sensor":
+		runSensorService(ctx, r, client)
+	case "navigation":
+		runNavigationService(ctx, r, client)
+	default:
+		runDefaultService(r, client, serviceName, env)
+	}
+
+	// 5. 公共 /health 端点
+	registerHealth(r, client)
+
+	// 6. 优雅关闭
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		log.Println("[demo-service] 收到终止信号，正在关闭...")
+		cancel()
+		os.Exit(0)
+	}()
+
+	log.Printf("[demo-service] ✅ 服务启动于 :%s (type=%s)", port, serviceType)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 各服务启动器
+// ---------------------------------------------------------------------------
+
+func runRadarService(ctx context.Context, r *gin.Engine, client *configclient.ConfigClient) {
+	cfg := radar.ParseRadarConfig(client)
+	configclient.PrintDiagnostics("radar-service", client.GetRawConfig(), radar.KnownKeys())
+
+	svc := radar.NewRadarService(cfg)
+	svc.Start(ctx)
+
+	// 通过环境变量 PORT 覆盖 server.port (如有)
+	applyPortOverride(&cfg.ScanRateHz) // no-op for now, radar doesn't have port config
+
+	radar.RegisterRoutes(&r.RouterGroup, svc)
+}
+
+func runSensorService(ctx context.Context, r *gin.Engine, client *configclient.ConfigClient) {
+	cfg := sensor.ParseSensorConfig(client)
+	configclient.PrintDiagnostics("sensor-service", client.GetRawConfig(), sensor.KnownKeys())
+
+	svc := sensor.NewSensorService(cfg)
+	svc.Start(ctx)
+
+	sensor.RegisterRoutes(&r.RouterGroup, svc)
+}
+
+func runNavigationService(ctx context.Context, r *gin.Engine, client *configclient.ConfigClient) {
+	cfg := navigation.ParseNavConfig(client)
+	configclient.PrintDiagnostics("navigation-service", client.GetRawConfig(), navigation.KnownKeys())
+
+	svc := navigation.NewNavService(cfg)
+	svc.Start(ctx)
+
+	navigation.RegisterRoutes(&r.RouterGroup, svc)
+}
+
+func runDefaultService(r *gin.Engine, client *configclient.ConfigClient, service, env string) {
+	raw := client.GetRawConfig()
+	knownKeys := []string{"db.url", "server.port", "log.level"}
+	configclient.PrintDiagnostics("default-service", raw, knownKeys)
+
+	// 向后兼容: 原 GET / 端点
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"service": service,
+			"env":     env,
+			"config": gin.H{
+				"server.port": client.GetInt("server.port", 3000, 1, 65535),
+				"db.url":      client.GetString("db.url", "localhost:3306"),
+				"log.level":   client.GetEnum("log.level", "info", []string{"debug", "info", "warn", "error"}),
+			},
+			"raw": raw,
+		})
+	})
+}
+
+// ---------------------------------------------------------------------------
+// 公共端点
+// ---------------------------------------------------------------------------
+
+func registerHealth(r *gin.Engine, client *configclient.ConfigClient) {
+	r.GET("/health", func(c *gin.Context) {
+		fromCenter := len(client.GetRawConfig()) > 0
+		status := "degraded"
+		if fromCenter {
+			status = "ok"
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":              status,
+			"config_from_center":  fromCenter,
+		})
+	})
+}
+
+// ---------------------------------------------------------------------------
+// 工具函数
+// ---------------------------------------------------------------------------
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func determinePort(serviceType string) string {
+	// 领域专用端口环境变量
+	envMap := map[string]string{
+		"radar":      "RADAR_PORT",
+		"sensor":     "SENSOR_PORT",
+		"navigation": "NAV_PORT",
+	}
+	if envKey, ok := envMap[serviceType]; ok {
+		if p := os.Getenv(envKey); p != "" {
+			return p
+		}
+	}
+	// 通用 PORT
+	if p := os.Getenv("PORT"); p != "" {
+		return p
+	}
+	// 默认端口
+	defaults := map[string]string{
+		"radar": "3001", "sensor": "3002", "navigation": "3003", "default": "3000",
+	}
+	if d, ok := defaults[serviceType]; ok {
+		return d
+	}
+	return "3000"
+}
+
+func applyPortOverride(_ *int) {
+	// port override 已在 determinePort 中处理
+	// 此处为将来扩展预留
+	fmt.Print("") // suppress unused import
+}
+
+// corsMiddleware 允许前端跨域调用各领域服务的 /health 端点
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Accept")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
 	}
 }

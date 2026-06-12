@@ -1,34 +1,41 @@
 <template>
   <aside class="sidebar">
-    <div class="sb-brand">
-      <svg class="sb-logo" width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <rect width="22" height="22" rx="5" fill="#5e6ad2"/>
-        <path d="M6 11l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="sb-title">配置中心</span>
-    </div>
-
     <div class="sb-nav">
-      <!-- All -->
+      <!-- 全部 -->
       <button
         class="sb-item"
-        :class="{ active: !selectedEnv && !selectedStatus }"
-        @click="$emit('select-env', '') || $emit('select-status', '')"
+        :class="{ active: !selectedService && !selectedEnv && !selectedStatus }"
+        @click="clearAll"
       >
-        <span class="sb-label">全部配置</span>
+        <span class="sb-label">全部配置组</span>
         <span class="sb-count">{{ totalCount }}</span>
       </button>
 
       <div class="sb-divider"></div>
 
-      <!-- Environments -->
+      <!-- 服务列表 — 从后端 configs 数据聚合 -->
+      <div class="sb-section-title">服务</div>
+      <button
+        v-for="svc in services"
+        :key="svc.name"
+        class="sb-item"
+        :class="{ active: selectedService === svc.name }"
+        @click="$emit('select-service', svc.name)"
+      >
+        <span class="sb-label">{{ svc.name }}</span>
+        <span class="sb-count">{{ svc.count }}</span>
+      </button>
+
+      <div class="sb-divider"></div>
+
+      <!-- 环境 -->
       <div class="sb-section-title">环境</div>
       <button
         v-for="env in envs"
         :key="env.key"
         class="sb-item"
         :class="{ active: selectedEnv === env.key }"
-        @click="$emit('select-env', env.key); $emit('select-status', '')"
+        @click="$emit('select-env', env.key)"
       >
         <span class="sb-label">{{ env.key }}</span>
         <span class="sb-count">{{ env.count }}</span>
@@ -36,19 +43,25 @@
 
       <div class="sb-divider"></div>
 
-      <!-- Status -->
+      <!-- 状态 -->
       <div class="sb-section-title">状态</div>
       <button
         v-for="st in statuses"
         :key="st.key"
         class="sb-item"
         :class="{ active: selectedStatus === st.key }"
-        @click="$emit('select-status', st.key); $emit('select-env', '')"
+        @click="$emit('select-status', st.key)"
       >
         <span class="sb-dot" :class="st.key"></span>
         <span class="sb-label">{{ st.label }}</span>
         <span class="sb-count">{{ st.count }}</span>
       </button>
+    </div>
+
+    <!-- 底部说明 -->
+    <div class="sb-footer">
+      <p>配置组 = service + env</p>
+      <p>配置项 = 组内的 key-value</p>
     </div>
   </aside>
 </template>
@@ -59,14 +72,34 @@ import { hasDraft } from '../utils/configDiff.js'
 
 const props = defineProps({
   configs: { type: Array, default: () => [] },
+  selectedService: { type: String, default: '' },
   selectedEnv: { type: String, default: '' },
   selectedStatus: { type: String, default: '' },
 })
 
-defineEmits(['select-env', 'select-status'])
+const emit = defineEmits(['select-service', 'select-env', 'select-status'])
 
+function clearAll() {
+  emit('select-service', '')
+  emit('select-env', '')
+  emit('select-status', '')
+}
+
+// ── 总数 = 配置组数 ──
 const totalCount = computed(() => props.configs.length)
 
+// ── 服务列表 — 从后端数据聚合 ──
+const services = computed(() => {
+  const map = {}
+  for (const c of props.configs) {
+    map[c.service] = (map[c.service] || 0) + 1
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, count]) => ({ name, count }))
+})
+
+// ── 环境 — 统计每个 env 下的配置组数 ──
 const envs = computed(() => {
   const counts = {}
   for (const c of props.configs) {
@@ -75,6 +108,7 @@ const envs = computed(() => {
   return ['dev', 'test', 'prod'].map(k => ({ key: k, count: counts[k] || 0 }))
 })
 
+// ── 状态 — 已发布 vs 待发布 ──
 const statuses = computed(() => {
   let pub = 0, pen = 0
   for (const c of props.configs) {
@@ -101,26 +135,8 @@ const statuses = computed(() => {
   overflow-y: auto;
 }
 
-.sb-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-}
-
-.sb-logo {
-  flex-shrink: 0;
-}
-
-.sb-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
 .sb-nav {
-  padding: 0 8px 16px;
+  padding: 12px 8px 16px;
   flex: 1;
 }
 
@@ -195,4 +211,14 @@ const statuses = computed(() => {
 
 .sb-dot.published { background: var(--color-published); }
 .sb-dot.pending { background: var(--color-pending); }
+
+/* ── 底部术语说明 ── */
+.sb-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--text-placeholder);
+  line-height: 1.6;
+}
+.sb-footer p { margin: 0; }
 </style>

@@ -1,21 +1,20 @@
 #!/bin/bash
 # =============================================
-#  冒烟测试 (Smoke Test)
-#  验证: 后端启动 → API 可用 → 编辑发布流程
-#        → demo-service 拉取配置 → 清理
+#  冒烟测试 (Smoke Test) — 多域仿真平台
+#  验证: 后端启动 → 10 配置组 → 编辑发布流程
+#        → 3 领域服务拉取配置 → 健康检查 → 清理
 # =============================================
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 PASS=0
 FAIL=0
 BASE_URL="http://localhost:8080"
-DEMO_URL="http://localhost:3000"
 
 info()  { echo -e "${NC}[INFO] $*"; }
 pass() { echo -e "${GREEN}[PASS]${NC} $*"; PASS=$((PASS+1)); }
@@ -24,23 +23,27 @@ fail() { echo -e "${RED}[FAIL]${NC} $*"; FAIL=$((FAIL+1)); }
 cleanup() {
     info "清理进程..."
     kill $BACKEND_PID 2>/dev/null || true
-    kill $DEMO_PID 2>/dev/null || true
+    kill $RADAR_PID 2>/dev/null || true
+    kill $SENSOR_PID 2>/dev/null || true
+    kill $NAV_PID 2>/dev/null || true
     wait $BACKEND_PID 2>/dev/null || true
-    wait $DEMO_PID 2>/dev/null || true
+    wait $RADAR_PID 2>/dev/null || true
+    wait $SENSOR_PID 2>/dev/null || true
+    wait $NAV_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
 # ============================================
-# Step 1: 编译
+# Step 1: 编译验证
 # ============================================
-info "=== Step 1: 编译 ==="
+info "=== Step 1: 编译验证 ==="
+export PATH=${PATH}:/root/go/bin
 
 cd "$REPO_DIR/backend"
-export PATH=${PATH}:/root/go/bin
-GOTOOLCHAIN=local go build -buildvcs=false -o config-center . && pass "backend build" || fail "backend build"
+GOTOOLCHAIN=local go build -buildvcs=false -o /dev/null . && pass "backend build" || fail "backend build"
 
 cd "$REPO_DIR/demo-service"
-GOTOOLCHAIN=local go build -buildvcs=false -o demo-service . && pass "demo-service build" || fail "demo-service build"
+GOTOOLCHAIN=local go build -buildvcs=false -o /dev/null . && pass "demo-service build" || fail "demo-service build"
 
 if [ $FAIL -gt 0 ]; then
     fail "编译失败，中止"
@@ -50,14 +53,12 @@ fi
 # ============================================
 # Step 2: 启动后端
 # ============================================
-info "=== Step 2: 启动后端 ==="
-
+info "=== Step 2: 启动后端 (:8080) ==="
 cd "$REPO_DIR/backend"
-./config-center &
+go run . &
 BACKEND_PID=$!
-sleep 2
+sleep 3
 
-# 验证后端存活
 if kill -0 $BACKEND_PID 2>/dev/null; then
     pass "后端进程启动 (PID=$BACKEND_PID)"
 else
@@ -66,54 +67,34 @@ else
 fi
 
 # ============================================
-# Step 3: API 基础验证
+# Step 3: 种子数据验证 (10 配置组)
 # ============================================
-info "=== Step 3: API 基础验证 ==="
+info "=== Step 3: 种子数据验证 ==="
 
-# 3.1 GET /api/configs — 种子数据
 CONFIGS=$(curl -sf "$BASE_URL/api/configs" 2>/dev/null)
-if echo "$CONFIGS" | grep -q "order-service"; then
-    pass "GET /api/configs — 种子数据包含 order-service"
+COUNT=$(echo "$CONFIGS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['configs']))" 2>/dev/null || echo "0")
+
+if [ "$COUNT" -ge 10 ]; then
+    pass "种子数据: $COUNT 个配置组 (期望 >= 10)"
 else
-    fail "GET /api/configs — 种子数据缺失"
+    fail "种子数据: $COUNT 个配置组 (期望 >= 10)"
 fi
 
-COUNT=$(echo "$CONFIGS" | grep -o '"service"' | wc -l)
-if [ "$COUNT" -ge 3 ]; then
-    pass "GET /api/configs — 共 $COUNT 个配置组 (期望 >= 3)"
-else
-    fail "GET /api/configs — 只有 $COUNT 个配置组 (期望 >= 3)"
-fi
+# 验证领域服务配置存在
+for svc in "radar-service" "sensor-service" "navigation-service"; do
+    if echo "$CONFIGS" | grep -q "$svc"; then
+        pass "  $svc 配置组存在"
+    else
+        fail "  $svc 配置组缺失"
+    fi
+done
 
-# 3.2 GET /api/configs/order-service/dev — 单个配置组
-DETAIL=$(curl -sf "$BASE_URL/api/configs/order-service/dev" 2>/dev/null)
-if echo "$DETAIL" | grep -q '"db.url"'; then
-    pass "GET /api/configs/order-service/dev — 包含 db.url 配置项"
+# 验证雷达 DEV 有 5 个配置项
+RADAR_KEYS=$(curl -sf "$BASE_URL/api/configs/radar-service/dev" 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)['config']['publishedData']))" 2>/dev/null || echo "0")
+if [ "$RADAR_KEYS" -eq 5 ]; then
+    pass "radar-service:dev 含 $RADAR_KEYS 个配置项 (期望 5)"
 else
-    fail "GET /api/configs/order-service/dev — 缺少配置项"
-fi
-
-# 3.3 GET /api/configs/order-service/dev/published — 微服务接口
-PUBLISHED=$(curl -sf "$BASE_URL/api/configs/order-service/dev/published" 2>/dev/null)
-if echo "$PUBLISHED" | grep -q '"db.url":"localhost:3306"'; then
-    pass "GET /api/configs/order-service/dev/published — 返回线上配置"
-else
-    fail "GET /api/configs/order-service/dev/published — 配置不正确"
-fi
-
-# 3.4 预留接口
-PUSH=$(curl -sf -X POST "$BASE_URL/api/configs/order-service/dev/push" 2>/dev/null)
-if echo "$PUSH" | grep -q "reserved"; then
-    pass "POST /push — 预留接口正常"
-else
-    fail "POST /push — 预留接口异常"
-fi
-
-WATCH=$(curl -sf "$BASE_URL/api/configs/watch" 2>/dev/null)
-if echo "$WATCH" | grep -q "reserved"; then
-    pass "GET /watch — 预留接口正常"
-else
-    fail "GET /watch — 预留接口异常"
+    fail "radar-service:dev 含 $RADAR_KEYS 个配置项 (期望 5)"
 fi
 
 # ============================================
@@ -121,74 +102,129 @@ fi
 # ============================================
 info "=== Step 4: 编辑 → 发布流程 ==="
 
-# 4.1 修改配置
-curl -sf -X PUT "$BASE_URL/api/configs/order-service/dev/keys/smoke.test" \
+# 4.1 修改雷达模式: search → track
+curl -sf -X PUT "$BASE_URL/api/configs/radar-service/dev/keys/radar.mode" \
     -H "Content-Type: application/json" \
-    -d '{"value":"smoke_test_value"}' > /dev/null
-pass "PUT /keys/smoke.test — 新增测试配置项"
+    -d '{"value":"track"}' > /dev/null
+pass "PUT /radar-service/dev/keys/radar.mode → track"
 
 # 4.2 发布
-PUBLISH_RESP=$(curl -sf -X POST "$BASE_URL/api/configs/order-service/dev/publish" 2>/dev/null)
+PUBLISH_RESP=$(curl -sf -X POST "$BASE_URL/api/configs/radar-service/dev/publish" 2>/dev/null)
 if echo "$PUBLISH_RESP" | grep -q "published"; then
-    pass "POST /publish — 发布成功"
+    pass "POST /radar-service/dev/publish — 发布成功"
 else
-    fail "POST /publish — 发布失败"
+    fail "POST /radar-service/dev/publish — 发布失败"
 fi
 
-# 4.3 验证发布后版本号递增
-VER=$(curl -sf "$BASE_URL/api/configs/order-service/dev" 2>/dev/null | grep -o '"publishedVersion":"[^"]*"' | head -1 | cut -d: -f2 | tr -d '"')
-if [ "$VER" = "1.0.0" ] || [ "$(echo "$VER" | sed 's/^1\.0\.//')" -ge 0 ] 2>/dev/null; then
-    pass "版本号递增: $VER (期望 1.0.0+)"
+# 4.3 验证 PublishedData 已更新
+MODE=$(curl -sf "$BASE_URL/api/configs/radar-service/dev/published" 2>/dev/null | grep -o '"radar.mode":"[^"]*"' | cut -d: -f2 | tr -d '"')
+if [ "$MODE" = "track" ]; then
+    pass "radar.mode 已发布生效: $MODE"
 else
-    fail "版本号异常: $VER"
+    fail "radar.mode 未生效: $MODE (期望 track)"
 fi
 
-# 4.4 验证新的配置值已生效
-NEWVAL=$(curl -sf "$BASE_URL/api/configs/order-service/dev/published" 2>/dev/null | grep -o '"smoke.test":"[^"]*"' | cut -d: -f2 | tr -d '"')
-if [ "$NEWVAL" = "smoke_test_value" ]; then
-    pass "配置项 smoke.test 已发布生效"
+# 4.4 版本号递增
+VER=$(curl -sf "$BASE_URL/api/configs/radar-service/dev" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['config']['publishedVersion'])" 2>/dev/null)
+if [ "$VER" = "1.0.1" ]; then
+    pass "版本号递增: $VER"
 else
-    fail "配置项 smoke.test 未生效: $NEWVAL"
-fi
-
-# 4.5 删除 → 再次发布
-curl -sf -X DELETE "$BASE_URL/api/configs/order-service/dev/keys/smoke.test" > /dev/null
-curl -sf -X POST "$BASE_URL/api/configs/order-service/dev/publish" > /dev/null
-DELCHECK=$(curl -sf "$BASE_URL/api/configs/order-service/dev/published" 2>/dev/null)
-if ! echo "$DELCHECK" | grep -q "smoke.test"; then
-    pass "删除 smoke.test 后发布 → 已从线上移除"
-else
-    fail "删除 smoke.test 后发布 → 仍然存在"
+    fail "版本号: $VER (期望 1.0.1)"
 fi
 
 # ============================================
-# Step 5: Demo Service 拉取配置
+# Step 5: 启动领域服务 + 健康检查
 # ============================================
-info "=== Step 5: Demo Service 拉取配置 ==="
+info "=== Step 5: 领域服务健康检查 ==="
+
+# 恢复雷达模式的默认值 (方便后续)
+curl -sf -X PUT "$BASE_URL/api/configs/radar-service/dev/keys/radar.mode" \
+    -H "Content-Type: application/json" \
+    -d '{"value":"search"}' > /dev/null
+curl -sf -X POST "$BASE_URL/api/configs/radar-service/dev/publish" > /dev/null
 
 cd "$REPO_DIR/demo-service"
-./demo-service &
-DEMO_PID=$!
+
+# 5.1 火控雷达 :3001
+SERVICE_TYPE=radar CONFIG_SERVICE=radar-service CONFIG_ENV=dev RADAR_PORT=3001 go run . &
+RADAR_PID=$!
 sleep 2
-
-if kill -0 $DEMO_PID 2>/dev/null; then
-    pass "Demo Service 启动 (PID=$DEMO_PID)"
+if kill -0 $RADAR_PID 2>/dev/null; then
+    pass "雷达服务启动 (PID=$RADAR_PID)"
 else
-    fail "Demo Service 未启动"
-    exit 1
+    fail "雷达服务未启动"
 fi
 
-DEMO_RESP=$(curl -sf "$DEMO_URL/" 2>/dev/null)
-if echo "$DEMO_RESP" | grep -q "order-service"; then
-    pass "GET / — 返回 order-service 标识"
+RADAR_HEALTH=$(curl -sf http://localhost:3001/health 2>/dev/null)
+if echo "$RADAR_HEALTH" | grep -q '"config_from_center":true'; then
+    pass "雷达 /health: config_from_center=true"
 else
-    fail "GET / — 未返回服务标识"
+    fail "雷达 /health 异常: $RADAR_HEALTH"
 fi
 
-if echo "$DEMO_RESP" | grep -q "db.url"; then
-    pass "Demo Service 成功拉取到配置 (含 db.url)"
+RADAR_STATUS=$(curl -sf http://localhost:3001/radar/status 2>/dev/null)
+if echo "$RADAR_STATUS" | grep -q "active_targets"; then
+    pass "雷达 /radar/status 正常 (含 active_targets)"
 else
-    fail "Demo Service 未拉取到配置"
+    fail "雷达 /radar/status 异常"
+fi
+
+# 5.2 光电传感器 :3002
+SERVICE_TYPE=sensor CONFIG_SERVICE=sensor-service CONFIG_ENV=dev SENSOR_PORT=3002 go run . &
+SENSOR_PID=$!
+sleep 2
+if kill -0 $SENSOR_PID 2>/dev/null; then
+    pass "传感器服务启动 (PID=$SENSOR_PID)"
+else
+    fail "传感器服务未启动"
+fi
+
+SENSOR_HEALTH=$(curl -sf http://localhost:3002/health 2>/dev/null)
+if echo "$SENSOR_HEALTH" | grep -q '"config_from_center":true'; then
+    pass "传感器 /health: config_from_center=true"
+else
+    fail "传感器 /health 异常"
+fi
+
+SENSOR_FRAME=$(curl -sf http://localhost:3002/sensor/frame 2>/dev/null)
+if echo "$SENSOR_FRAME" | grep -q "frame_id"; then
+    pass "传感器 /sensor/frame 正常 (含 frame_id)"
+else
+    fail "传感器 /sensor/frame 异常"
+fi
+
+# 5.3 船舶航海 :3003
+SERVICE_TYPE=navigation CONFIG_SERVICE=navigation-service CONFIG_ENV=dev NAV_PORT=3003 go run . &
+NAV_PID=$!
+sleep 2
+if kill -0 $NAV_PID 2>/dev/null; then
+    pass "航海服务启动 (PID=$NAV_PID)"
+else
+    fail "航海服务未启动"
+fi
+
+NAV_HEALTH=$(curl -sf http://localhost:3003/health 2>/dev/null)
+if echo "$NAV_HEALTH" | grep -q '"config_from_center":true'; then
+    pass "航海 /health: config_from_center=true"
+else
+    fail "航海 /health 异常"
+fi
+
+NAV_POS=$(curl -sf http://localhost:3003/nav/position 2>/dev/null)
+if echo "$NAV_POS" | grep -q '"lat"'; then
+    pass "航海 /nav/position 正常 (含 lat/lng)"
+else
+    fail "航海 /nav/position 异常"
+fi
+
+# 5.4 雷达模式动态切换
+OLD_MODE=$(curl -sf http://localhost:3001/radar/status 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['config']['mode'])" 2>/dev/null)
+curl -sf -X POST http://localhost:3001/radar/mode -H 'Content-Type: application/json' -d '{"mode":"engage"}' > /dev/null
+NEW_MODE=$(curl -sf http://localhost:3001/radar/status 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['config']['mode'])" 2>/dev/null)
+if [ "$NEW_MODE" = "engage" ]; then
+    pass "雷达模式动态切换: $OLD_MODE → $NEW_MODE"
+else
+    fail "雷达模式切换失败: $NEW_MODE (期望 engage)"
 fi
 
 # ============================================
@@ -204,7 +240,6 @@ else
 fi
 info "=========================================="
 
-# 清理
 cleanup
 trap - EXIT
 

@@ -151,3 +151,96 @@ bash tests/smoke_test.sh
 | golangci-lint | v1.55.2 | 全量聚合 | ⚠️ (备用) | — | 已安装 |
 
 详见 `LINTLOG.md`。
+
+## 第四轮: 多域仿真平台扩展 (2026-06-12)
+
+### 设计 Prompt
+
+**用户**: "demo-service可以有业务逻辑实现吗，例如三个服务甚至更多 模拟航空中的火控雷达，光电中的传感器，船舶中的航海等等"
+
+**AI 响应**: 先使用 Plan Agent 设计架构，再按 8 步顺序实施:
+1. 提取 ConfigClient SDK (`pkg/configclient/`)
+2. 火控雷达服务 (`internal/radar/`)
+3. 光电传感器服务 (`internal/sensor/`)
+4. 船舶航海服务 (`internal/navigation/`)
+5. main.go 重写为 SERVICE_TYPE 分发器
+6. 后端种子数据 4→10 组
+7. start.sh 多进程
+8. 文档更新
+
+### 关键 Prompt 记录
+
+| 阶段 | Prompt | 工具/技能 |
+|------|--------|----------|
+| 架构设计 | "设计一个详细的实现计划来扩展 demo-service" | Plan Agent |
+| SDK 提取 | "提取 ConfigClient 到 pkg/configclient/" | Edit/Write |
+| 雷达服务 | "实现火控雷达服务: 配置契约 + 状态机 + 后台 goroutine" | Write (4 files) |
+| 传感器服务 | "实现光电传感器: 帧生成 + 检测模型 + 环形缓冲" | Write (4 files) |
+| 航海服务 | "实现船舶航海: GPS 推进 + 航点追踪 + 自动导航" | Write (4 files) |
+| main.go 重写 | "重写 main.go 为 SERVICE_TYPE 分发器 + CORS 中间件" | Write |
+| 后端种子数据 | "backend/main.go 种子数据加 6 个新配置组" | Edit |
+| start.sh 更新 | "start.sh 增加 :3000 默认服务" | Write |
+| 概念澄清 | "配置组 vs 配置项的定义和 count 计算" | — |
+| 微服务状态修复 | "ServiceStatus 滚轮不生效/配置已绑定判断有误/服务列表硬编码" | Write |
+| 图标修复 | "刷新和帮助图标缺失" | Edit (改用 Element Plus el-icon) |
+| 帮助文档重写 | "帮助文档阐述配置组和配置项的区别" | Edit |
+| 评估报告优化 | "读取 fde-candidate-assessment-report 并优化，不加数据库" | Write (交互版HTML) |
+| 测试更新 | "更新 test 文件并跑测试" | Edit/Write (3 test files) |
+
+### AI 辅助模块 (本轮新增)
+
+| 模块 | AI 完成度 | 说明 |
+|------|----------|------|
+| `pkg/configclient/client.go` | 95% | 从 main.go 提取 + GetString/Int/Float/Enum 泛化 |
+| `pkg/configclient/diagnostics.go` | 100% | 通用诊断函数 |
+| `pkg/configclient/client_test.go` | 100% | 9 个 SDK 测试 (含 mock HTTP server) |
+| `internal/radar/*.go` | 90% | 4 文件: config/target/service/handler |
+| `internal/sensor/*.go` | 90% | 4 文件: config/frame/service/handler |
+| `internal/navigation/*.go` | 90% | 4 文件: config/position/service/handler |
+| `demo-service/main.go` | 85% | SERVICE_TYPE 分发器 + CORS |
+| `frontend/.../ServiceStatus.vue` | 95% | /health 真实探测 + 4 服务 + 滚轮修复 |
+| `frontend/.../Sidebar.vue` | 95% | 服务列表聚合 + 过滤互斥 |
+| `frontend/.../App.vue` | 90% | 图标修复 + 帮助重写 + 稳定排序 |
+| `backend/store/store_test.go` | 100% | +4 测试 |
+| `backend/handler/handler_test.go` | 100% | +3 测试 |
+| `tests/smoke_test.sh` | 100% | +11 检查点 (领域服务) |
+| `DEMO_SERVICES.md` | 100% | 领域服务完整说明 |
+| `fde-candidate-assessment-report` | 95% | 交互版 HTML (折叠/深色/笔记/localStorage) |
+
+### 本轮 Bug 及修复
+
+#### BUG-013: 前端配置列表排序随机跳动
+- **现象**: 每 5 秒轮询后表格行顺序随机变化
+- **原因**: 后端 `ConfigStore.Configs` 是 Go `map`，遍历顺序随机，JSON 数组顺序每次不同
+- **修复**: `filteredConfigs` 末尾加稳定排序 (service 字母序 → env 固定顺序 dev/test/prod)
+
+#### BUG-014: 微服务状态页"配置已绑定"语义错误
+- **现象**: user-service:dev 显示"配置已绑定"，但根本没有运行实例
+- **原因**: 判断逻辑只检查后端有无对应配置组，不等同于服务在运行
+- **修复**: 重写为 `/health` 端点真实探测，仅展示有 endpoint 的 4 个服务
+
+#### BUG-015: 微服务状态页无法滚动
+- **现象**: 服务卡片超出视口时鼠标滚轮无反应
+- **原因**: `.service-status` 未正确约束高度，`overflow:auto` 不生效
+- **修复**: `.service-scroll` 使用 `flex:1; overflow-y:auto` + 父容器 `height:100%`
+
+#### BUG-016: CORS 缺失导致前端无法探测 /health
+- **现象**: 前端 :5173 向 :3001/:3002/:3003 发 `/health` 请求被浏览器拦截
+- **原因**: demo-service 未设置 CORS 头
+- **修复**: main.go 添加 `corsMiddleware()` 设置 `Access-Control-Allow-Origin: *`
+
+#### BUG-017: 刷新和帮助图标渲染异常
+- **现象**: 自绘 SVG 弧线显示不完整
+- **修复**: 改用 Element Plus `<el-icon><Refresh /></el-icon>` 和 `<QuestionFilled />`
+
+## 测试覆盖更新
+
+### 第四轮测试结果
+
+| 层级 | 用例数 | 新增 | 结果 |
+|------|--------|------|------|
+| Store 单元测试 | 12 | +4 | ✅ PASS |
+| Handler 集成测试 | 21 | +3 | ✅ PASS |
+| ConfigClient SDK | 9 | +9 | ✅ PASS |
+| 冒烟测试 | 22 | +11 | ✅ 22/22 PASS |
+| 前端构建 | — | — | ✅ PASS |
