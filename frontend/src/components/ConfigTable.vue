@@ -1,30 +1,32 @@
 <template>
-  <div class="table-wrapper">
-    <div class="table-inner">
+  <div class="cl-table-wrapper">
+    <div class="cl-table">
       <!-- Header -->
-      <div class="table-header">
-        <div class="th th-service">Service</div>
-        <div class="th th-env">Env</div>
-        <div class="th th-version">Ver</div>
-        <div class="th th-preview">Config Preview</div>
-        <div class="th th-status">Status</div>
+      <div class="cl-th">
+        <div class="cl-th-cell svc">Service / Env</div>
+        <div class="cl-th-cell ver">Ver</div>
+        <div class="cl-th-cell preview">Config Preview</div>
+        <div class="cl-th-cell changes">Changes</div>
+        <div class="cl-th-cell time">Last Published</div>
+        <div class="cl-th-cell status">Status</div>
       </div>
 
-      <!-- Loading skeleton -->
-      <div v-if="loading" class="table-body">
-        <div v-for="n in 3" :key="n" class="tr shimmer">
-          <div class="td th-service"><span class="shimmer-bar" style="width:60%"></span></div>
-          <div class="td th-env"><span class="shimmer-bar" style="width:40%"></span></div>
-          <div class="td th-version"><span class="shimmer-bar" style="width:30%"></span></div>
-          <div class="td th-preview"><span class="shimmer-bar" style="width:80%"></span></div>
-          <div class="td th-status"><span class="shimmer-bar" style="width:50%"></span></div>
+      <!-- Loading shimmer -->
+      <div v-if="loading" class="cl-body">
+        <div v-for="n in 3" :key="n" class="cl-row shimmer">
+          <div class="cl-cell svc"><span class="shim" style="width:60%"></span></div>
+          <div class="cl-cell ver"><span class="shim" style="width:30%"></span></div>
+          <div class="cl-cell preview"><span class="shim" style="width:80%"></span></div>
+          <div class="cl-cell changes"><span class="shim" style="width:40%"></span></div>
+          <div class="cl-cell time"><span class="shim" style="width:50%"></span></div>
+          <div class="cl-cell status"><span class="shim" style="width:60%"></span></div>
         </div>
       </div>
 
-      <!-- Empty state -->
-      <div v-else-if="rows.length === 0" class="empty-state">
+      <!-- Empty -->
+      <div v-else-if="rows.length === 0" class="cl-empty-state">
         <div class="empty-dots">
-          <svg width="80" height="80" viewBox="0 0 80 80" fill="none" opacity="0.15">
+          <svg width="60" height="60" viewBox="0 0 80 80" fill="none" opacity="0.12">
             <circle cx="20" cy="20" r="2" fill="#9CA3AF"/><circle cx="40" cy="20" r="2" fill="#9CA3AF"/>
             <circle cx="60" cy="20" r="2" fill="#9CA3AF"/><circle cx="20" cy="40" r="2" fill="#9CA3AF"/>
             <circle cx="40" cy="40" r="2" fill="#9CA3AF"/><circle cx="60" cy="40" r="2" fill="#9CA3AF"/>
@@ -32,32 +34,37 @@
             <circle cx="60" cy="60" r="2" fill="#9CA3AF"/>
           </svg>
         </div>
-        <p class="empty-title">暂无配置数据</p>
-        <p class="empty-desc">后端尚未返回配置组，请确认配置中心已启动</p>
+        <p class="empty-title">No config data</p>
+        <p class="empty-desc">Backend hasn't returned any config groups yet</p>
       </div>
 
       <!-- Rows -->
-      <div v-else class="table-body">
+      <div v-else class="cl-body">
         <div
           v-for="row in rows"
           :key="rowKey(row)"
-          class="tr"
-          :class="{ selected: selectedRow && selectedRow.service === row.service && selectedRow.env === row.env }"
+          class="cl-row"
+          :class="{ selected: isSelected(row) }"
           @click="$emit('select', row)"
         >
-          <div class="td th-service">
-            <span class="service-name">{{ row.service }}</span>
+          <div class="cl-cell svc">
+            <span class="svc-name">{{ row.service }}</span>
+            <span class="svc-env">{{ row.env }}</span>
           </div>
-          <div class="td th-env">
-            <span class="env-tag">{{ row.env }}</span>
+          <div class="cl-cell ver">
+            <span class="ver-num">v{{ row.publishedVersion }}</span>
           </div>
-          <div class="td th-version">
-            <span class="version-num">v{{ row.publishedVersion }}</span>
-          </div>
-          <div class="td th-preview">
+          <div class="cl-cell preview">
             <span class="preview-text">{{ previewText(row) }}</span>
           </div>
-          <div class="td th-status">
+          <div class="cl-cell changes">
+            <span v-if="rowHasDraft(row)" class="changes-badge">{{ countDiffStr(row) }}</span>
+            <span v-else class="no-changes">—</span>
+          </div>
+          <div class="cl-cell time">
+            <span class="time-text">{{ formatRelative(row.lastPublishedAt) }}</span>
+          </div>
+          <div class="cl-cell status">
             <StatusBadge :hasDraft="rowHasDraft(row)" />
           </div>
         </div>
@@ -67,8 +74,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import StatusBadge from './StatusBadge.vue'
+import { hasDraft, countDiff } from '../utils/configDiff.js'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
@@ -82,10 +89,23 @@ function rowKey(row) {
   return `${row.service}:${row.env}`
 }
 
+function isSelected(row) {
+  return props.selectedRow &&
+    props.selectedRow.service === row.service &&
+    props.selectedRow.env === row.env
+}
+
 function rowHasDraft(row) {
-  const d = row.draftData || {}
-  const p = row.publishedData || {}
-  return JSON.stringify(d) !== JSON.stringify(p)
+  return hasDraft(row)
+}
+
+function countDiffStr(row) {
+  const c = countDiff(row)
+  const parts = []
+  if (c.added) parts.push(`+${c.added}`)
+  if (c.modified) parts.push(`~${c.modified}`)
+  if (c.deleted) parts.push(`-${c.deleted}`)
+  return `${c.total} change${c.total > 1 ? 's' : ''}`
 }
 
 function previewText(row) {
@@ -93,109 +113,143 @@ function previewText(row) {
   const entries = Object.entries(data).slice(0, 3)
   const parts = entries.map(([k, v]) => `${k}=${v}`)
   let preview = parts.join(', ')
-  if (Object.keys(data).length > 3) preview += '...'
+  if (Object.keys(data).length > 3) preview += ' ...'
   return preview || '—'
+}
+
+function formatRelative(t) {
+  if (!t) return '—'
+  const diff = Date.now() - new Date(t).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 </script>
 
 <style scoped>
-.table-wrapper {
-  margin: 0 24px 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--border-radius-input);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
+.cl-table-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-surface);
 }
 
-.table-inner {
-  width: 100%;
+.cl-table {
+  min-width: 100%;
 }
 
-.table-header {
+/* Header */
+.cl-th {
   display: flex;
   align-items: center;
-  height: 36px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border-default);
-  background: var(--bg-page);
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.table-body {
-  /* empty */
-}
-
-.th {
+.cl-th-cell {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-placeholder);
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
-.th-service { width: 22%; }
-.th-env { width: 10%; }
-.th-version { width: 8%; }
-.th-preview { flex: 1; }
-.th-status { width: 160px; text-align: right; padding-right: 16px; }
+.svc { width: 24%; min-width: 140px; }
+.ver { width: 7%; min-width: 40px; text-align: center; }
+.preview { flex: 1; min-width: 120px; }
+.changes { width: 12%; min-width: 80px; }
+.time { width: 12%; min-width: 70px; }
+.status { width: 14%; min-width: 90px; text-align: right; padding-right: 8px; }
 
-.tr {
+/* Rows */
+.cl-row {
   display: flex;
   align-items: center;
   height: var(--row-height);
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border-default);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
   cursor: pointer;
   transition: background 0.1s;
 }
 
-.tr:last-child {
-  border-bottom: none;
-}
-
-.tr:hover {
+.cl-row:hover {
   background: var(--bg-hover);
 }
 
-.tr.selected {
+.cl-row.selected {
   background: var(--bg-blue);
+  border-left-color: var(--color-primary);
 }
 
-.td {
+.cl-row:last-child {
+  border-bottom: none;
+}
+
+/* Cells */
+.cl-cell {
   font-size: var(--font-size-sm);
-  color: var(--color-text);
+  color: var(--text-primary);
   overflow: hidden;
   white-space: nowrap;
 }
 
-.service-name {
+.svc-name {
   font-weight: 500;
+  color: var(--text-primary);
 }
 
-.env-tag {
+.svc-env {
   display: inline-block;
-  padding: 1px 8px;
-  border-radius: var(--border-radius-tag);
-  background: var(--bg-page);
-  border: 1px solid var(--border-default);
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
-.version-num {
+.ver-num {
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .preview-text {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
-/* Shimmer loading */
-.shimmer .shimmer-bar {
+.changes-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-pending-bg);
+  color: var(--color-pending);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.no-changes {
+  color: var(--text-placeholder);
+}
+
+.time-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-placeholder);
+}
+
+/* Shimmer */
+.shim {
   display: block;
-  height: 12px;
+  height: 10px;
   border-radius: 3px;
   background: linear-gradient(90deg, #eee 25%, #e0e0e0 50%, #eee 75%);
   background-size: 200% 100%;
@@ -207,8 +261,8 @@ function previewText(row) {
   100% { background-position: -200% 0; }
 }
 
-/* Empty state */
-.empty-state {
+/* Empty */
+.cl-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -217,19 +271,17 @@ function previewText(row) {
   text-align: center;
 }
 
-.empty-dots {
-  margin-bottom: 16px;
-}
+.empty-dots { margin-bottom: 12px; }
 
 .empty-title {
   font-size: var(--font-size-base);
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .empty-desc {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 </style>

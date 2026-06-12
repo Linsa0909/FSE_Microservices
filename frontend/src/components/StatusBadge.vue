@@ -1,6 +1,6 @@
 <template>
   <span class="status-badge" :class="statusClass">
-    <span class="dot"></span>
+    <span class="sb-dot"></span>
     {{ label }}
   </span>
 </template>
@@ -13,19 +13,18 @@ const props = defineProps({
 })
 
 const statusClass = computed(() => (props.hasDraft ? 'pending' : 'published'))
-const label = computed(() => (props.hasDraft ? 'PENDING_PUBLISH' : 'PUBLISHED'))
+const label = computed(() => (props.hasDraft ? 'Pending' : 'Published'))
 </script>
 
 <style scoped>
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: var(--border-radius-tag);
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
@@ -39,18 +38,18 @@ const label = computed(() => (props.hasDraft ? 'PENDING_PUBLISH' : 'PUBLISHED'))
   color: var(--color-pending);
 }
 
-.dot {
+.sb-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.published .dot {
+.published .sb-dot {
   background: var(--color-published);
 }
 
-.pending .dot {
+.pending .sb-dot {
   background: var(--color-pending);
 }
 </style>

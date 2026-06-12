@@ -1,51 +1,60 @@
 /* === Design Tokens — Linear.app inspired === */
 :root {
   /* Backgrounds */
-  --bg-page: #FAFAFA;
-  --bg-card: #FFFFFF;
-  --bg-hover: #F5F5F5;
-  --bg-blue: #EFF6FF;
+  --bg-app: #f7f8fa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f3f4f6;
+  --bg-hover: #f0f1f3;
+  --bg-blue: #eef0fd;
+  --bg-blue-hover: #e4e7fb;
 
   /* Borders */
-  --border-default: #E5E5E5;
-  --border-hover: #D0D0D0;
-  --border-radius-btn: 6px;
-  --border-radius-input: 8px;
-  --border-radius-tag: 4px;
-  --border-radius-dialog: 12px;
+  --border-subtle: #e5e7eb;
+  --border-default: #e5e7eb;
+  --border-hover: #d1d5db;
 
-  /* Shadows */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.12);
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-placeholder: #9ca3af;
 
-  /* Colors */
-  --color-primary: #2563EB;
-  --color-primary-hover: #1D4ED8;
-  --color-text: rgba(10, 10, 10, 0.85);
-  --color-text-secondary: #6B7280;
-  --color-text-placeholder: #9CA3AF;
+  /* Accent — Linear purple-blue */
+  --color-primary: #5e6ad2;
+  --color-primary-hover: #4f5bc0;
+
+  /* Status */
   --color-published: #059669;
-  --color-published-bg: #ECFDF5;
-  --color-pending: #D97706;
-  --color-pending-bg: #FFFBEB;
+  --color-published-bg: #ecfdf5;
+  --color-pending: #d97706;
+  --color-pending-bg: #fffbeb;
 
   /* Diff highlights */
-  --diff-added-bg: #ECFDF5;
-  --diff-added-text: #065F46;
-  --diff-modified-bg: #FFFBEB;
-  --diff-modified-text: #92400E;
-  --diff-deleted-bg: #FEF2F2;
-  --diff-deleted-text: #991B1B;
+  --diff-added-bg: #ecfdf5;
+  --diff-added-text: #065f46;
+  --diff-modified-bg: #fffbeb;
+  --diff-modified-text: #92400e;
+  --diff-deleted-bg: #fef2f2;
+  --diff-deleted-text: #991b1b;
 
   /* Typography */
   --font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-size-xs: 12px;
-  --font-size-sm: 13px;
-  --font-size-base: 14px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-lg: 14px;
 
   /* Spacing (4px grid) */
   --row-height: 44px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Shadows — minimal */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10);
 }
 
 /* === Global Reset === */
@@ -55,34 +64,47 @@
   box-sizing: border-box;
 }
 
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
-  color: var(--color-text);
-  background: var(--bg-page);
+  color: var(--text-primary);
+  background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Override Element Plus to match our design system */
+/* === Element Plus Overrides === */
 .el-button--primary {
   --el-button-bg-color: var(--color-primary);
   --el-button-border-color: var(--color-primary);
   --el-button-hover-bg-color: var(--color-primary-hover);
   --el-button-hover-border-color: var(--color-primary-hover);
-  border-radius: var(--border-radius-btn) !important;
+  border-radius: var(--radius-md) !important;
   font-weight: 500;
   font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  height: 32px;
+  padding: 0 12px;
 }
 
 .el-button {
-  border-radius: var(--border-radius-btn) !important;
+  border-radius: var(--radius-md) !important;
   font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  height: 32px;
+  padding: 0 12px;
+  font-weight: 500;
 }
 
 .el-input__wrapper {
-  border-radius: var(--border-radius-input) !important;
-  box-shadow: 0 0 0 1px var(--border-default) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0 0 1px var(--border-subtle) !important;
+  background: var(--bg-surface) !important;
 }
 
 .el-input__wrapper:hover {
@@ -94,24 +116,45 @@ body {
 }
 
 .el-select .el-input__wrapper {
-  border-radius: var(--border-radius-input) !important;
+  border-radius: var(--radius-md) !important;
 }
 
 .el-drawer {
-  --el-drawer-bg-color: var(--bg-card);
+  --el-drawer-bg-color: var(--bg-surface);
+}
+
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.el-drawer__body {
+  padding: 0;
+}
+
+.el-drawer__footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .el-dialog {
-  border-radius: var(--border-radius-dialog) !important;
+  border-radius: var(--radius-lg) !important;
 }
 
 .el-message {
-  border-radius: var(--border-radius-btn) !important;
+  border-radius: var(--radius-md) !important;
   font-family: var(--font-family);
+  font-size: var(--font-size-sm);
 }
 
 .el-tag {
-  border-radius: var(--border-radius-tag) !important;
+  border-radius: var(--radius-sm) !important;
   font-family: var(--font-family);
   font-weight: 500;
+}
+
+.el-message-box {
+  border-radius: var(--radius-lg) !important;
+  font-family: var(--font-family);
 }

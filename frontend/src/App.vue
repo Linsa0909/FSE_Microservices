@@ -1,75 +1,120 @@
 <template>
-  <div class="app">
-    <TopBar
-      :lastRefresh="lastRefresh"
-      :refreshing="refreshing"
-      @manual-refresh="fetchData"
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <Sidebar
+      v-if="isDesktop"
+      :configs="configs"
+      :selectedEnv="filterState.env"
+      :selectedStatus="filterState.status"
+      @select-env="onSidebarEnv"
+      @select-status="onSidebarStatus"
     />
-    <div class="page-content">
-      <ConfigFilters @filter="onFilter" />
+
+    <!-- Main area -->
+    <div class="main-area">
+      <TopBar
+        :search="filterState.search"
+        :env="filterState.env"
+        :status="filterState.status"
+        :lastRefresh="lastRefresh"
+        :refreshing="refreshing"
+        @manual-refresh="fetchData"
+        @update:search="filterState.search = $event"
+        @update:env="filterState.env = $event"
+        @update:status="filterState.status = $event"
+      />
       <ConfigTable
         :rows="filteredConfigs"
         :loading="loading"
         :selectedRow="selectedRow"
-        @select="openDrawer"
+        @select="openDetail"
       />
     </div>
-    <ConfigDrawer
-      v-model="drawerVisible"
-      :service="selectedService"
-      :env="selectedEnv"
-      @close="drawerVisible = false"
-      @published="fetchData"
-    />
+
+    <!-- Detail panel / drawer -->
+    <template v-if="selectedRow">
+      <ConfigDrawer
+        v-if="isDesktop"
+        :service="selectedService"
+        :env="selectedEnv"
+        :panel="true"
+        @close="closeDetail"
+        @published="fetchData"
+      />
+      <ConfigDrawer
+        v-else
+        v-model="drawerVisible"
+        :service="selectedService"
+        :env="selectedEnv"
+        @close="closeDetail"
+        @published="fetchData"
+      />
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getAllConfigs } from './api/configService.js'
+import Sidebar from './components/Sidebar.vue'
 import TopBar from './components/TopBar.vue'
-import ConfigFilters from './components/ConfigFilters.vue'
 import ConfigTable from './components/ConfigTable.vue'
 import ConfigDrawer from './components/ConfigDrawer.vue'
+import { hasDraft } from './utils/configDiff.js'
 
-// Data
+// === Responsive ===
+const isDesktop = ref(false)
+let mq = null
+
+onMounted(() => {
+  mq = window.matchMedia('(min-width: 1024px)')
+  isDesktop.value = mq.matches
+  mq.addEventListener('change', (e) => { isDesktop.value = e.matches })
+})
+
+onUnmounted(() => {
+  if (mq) mq.removeEventListener('change', () => {})
+})
+
+// === Data ===
 const configs = ref([])
 const loading = ref(true)
 const refreshing = ref(false)
 const lastRefresh = ref('--:--:--')
 let intervalId = null
 
-// Filters
+// === Filters ===
 const filterState = ref({ search: '', env: '', status: '' })
 
-// Drawer
+// === Detail ===
 const drawerVisible = ref(false)
 const selectedService = ref('')
 const selectedEnv = ref('')
 const selectedRow = ref(null)
 
-// Computed
+// === Computed ===
 const filteredConfigs = computed(() => {
   let list = configs.value
   const f = filterState.value
 
   if (f.search) {
-    list = list.filter(c => c.service.toLowerCase().includes(f.search))
+    const q = f.search.toLowerCase()
+    list = list.filter(c => c.service.toLowerCase().includes(q))
   }
   if (f.env) {
     list = list.filter(c => c.env === f.env)
   }
   if (f.status) {
     list = list.filter(c => {
-      const hasDraft = JSON.stringify(c.draftData || {}) !== JSON.stringify(c.publishedData || {})
-      return f.status === 'pending' ? hasDraft : !hasDraft
+      const draft = hasDraft(c)
+      return f.status === 'pending' ? draft : !draft
     })
   }
 
   return list
 })
 
-// Methods
+// === Methods ===
 async function fetchData() {
   try {
     const data = await getAllConfigs()
@@ -88,18 +133,27 @@ function updateLastRefresh() {
   lastRefresh.value = now.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
-function onFilter(f) {
-  filterState.value = f
+function onSidebarEnv(env) {
+  filterState.value.env = env
 }
 
-function openDrawer(row) {
+function onSidebarStatus(status) {
+  filterState.value.status = status
+}
+
+function openDetail(row) {
   selectedService.value = row.service
   selectedEnv.value = row.env
   selectedRow.value = row
   drawerVisible.value = true
 }
 
-// Lifecycle
+function closeDetail() {
+  drawerVisible.value = false
+  selectedRow.value = null
+}
+
+// === Lifecycle ===
 onMounted(() => {
   fetchData()
   intervalId = setInterval(fetchData, 5000)
@@ -111,14 +165,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.app {
-  min-height: 100vh;
-  background: var(--bg-page);
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-app);
 }
 
-.page-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-top: 8px;
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 </style>

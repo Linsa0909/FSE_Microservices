@@ -1,21 +1,20 @@
 <template>
-  <div class="changelog" v-if="logs && logs.length > 0">
-    <div class="changelog-header">
-      <h4>变更记录</h4>
-      <span class="count">{{ logs.length }} 条</span>
+  <div class="cl-wrapper">
+    <div class="cl-header">
+      <h4>Activity</h4>
+      <span class="cl-count">{{ logs.length }}</span>
     </div>
-    <div class="log-list">
-      <div v-for="(log, i) in logs" :key="i" class="log-item">
-        <span class="log-time">{{ formatTime(log.time) }}</span>
-        <span class="log-operator">{{ log.operator }}</span>
-        <span class="log-action" :class="'action-' + actionClass(log.action)">{{ log.action }}</span>
-        <code v-if="log.key" class="log-key">{{ log.key }}</code>
-        <span class="log-version">v{{ log.version }}</span>
+    <div class="cl-list" v-if="logs.length > 0">
+      <div v-for="(log, i) in logs" :key="i" class="cl-item">
+        <span class="cl-dot" :class="'dot-' + actionClass(log.action)"></span>
+        <span class="cl-operator">{{ log.operator }}</span>
+        <span class="cl-action" :class="'act-' + actionClass(log.action)">{{ log.action }}</span>
+        <code v-if="log.key" class="cl-key">{{ log.key }}</code>
+        <span class="cl-spacer"></span>
+        <span class="cl-time">{{ formatTime(log.time) }}</span>
       </div>
     </div>
-  </div>
-  <div v-else class="changelog-empty">
-    <span class="muted">暂无变更记录</span>
+    <div v-else class="cl-empty">No activity yet</div>
   </div>
 </template>
 
@@ -36,73 +35,95 @@ function actionClass(action) {
 </script>
 
 <style scoped>
-.changelog {
-  margin-top: 24px;
-  border-top: 1px solid var(--border-default);
-  padding-top: 20px;
+.cl-wrapper {
+  padding: 0 20px 16px;
 }
 
-.changelog-header {
+.cl-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.changelog-header h4 {
-  font-size: var(--font-size-base);
+.cl-header h4 {
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
-.count {
+.cl-count {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-placeholder);
+  background: var(--bg-subtle);
+  padding: 1px 6px;
+  border-radius: 10px;
 }
 
-.log-list {
-  border: 1px solid var(--border-default);
-  border-radius: var(--border-radius-input);
-  overflow: hidden;
+.cl-list {
+  max-height: 240px;
+  overflow-y: auto;
 }
 
-.log-item {
+.cl-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border-default);
+  gap: 8px;
+  padding: 6px 0;
   font-size: var(--font-size-sm);
 }
 
-.log-item:last-child { border-bottom: none; }
+.cl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
-.log-time { color: var(--color-text-placeholder); white-space: nowrap; }
-.log-operator { color: var(--color-text-secondary); font-weight: 500; }
-.log-action { font-weight: 500; }
+.dot-add { background: var(--diff-added-text); }
+.dot-modify { background: var(--diff-modified-text); }
+.dot-delete { background: var(--diff-deleted-text); }
+.dot-publish { background: var(--color-primary); }
+.dot-default { background: var(--text-placeholder); }
 
-.action-add { color: var(--diff-added-text); }
-.action-modify { color: var(--diff-modified-text); }
-.action-delete { color: var(--diff-deleted-text); }
-.action-publish { color: var(--color-primary); }
-.action-default { color: var(--color-text-secondary); }
+.cl-operator {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
 
-.log-key {
+.cl-action {
+  font-weight: 500;
+}
+
+.act-add { color: var(--diff-added-text); }
+.act-modify { color: var(--diff-modified-text); }
+.act-delete { color: var(--diff-deleted-text); }
+.act-publish { color: var(--color-primary); }
+.act-default { color: var(--text-secondary); }
+
+.cl-key {
   font-size: var(--font-size-xs);
   padding: 1px 6px;
   border-radius: 3px;
-  background: var(--bg-page);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
-.log-version { color: var(--color-text-placeholder); margin-left: auto; }
+.cl-spacer {
+  flex: 1;
+}
 
-.changelog-empty {
-  margin-top: 24px;
-  border-top: 1px solid var(--border-default);
-  padding-top: 20px;
+.cl-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-placeholder);
+  white-space: nowrap;
+}
+
+.cl-empty {
   text-align: center;
+  padding: 20px 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-placeholder);
 }
-
-.muted { color: var(--color-text-placeholder); font-size: var(--font-size-sm); }
 </style>

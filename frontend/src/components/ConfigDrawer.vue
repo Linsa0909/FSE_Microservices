@@ -1,77 +1,187 @@
 <template>
+  <!-- Desktop: inline panel -->
+  <div v-if="panel" class="detail-panel">
+    <div class="dp-inner">
+      <!-- Header -->
+      <div class="dp-header">
+        <div class="dp-header-top">
+          <div class="dp-title-row">
+            <span class="dp-service">{{ config?.service }}</span>
+            <span class="dp-sep">/</span>
+            <span class="dp-env">{{ config?.env }}</span>
+            <StatusBadge :hasDraft="hasDraft" />
+          </div>
+          <button class="dp-close" @click="$emit('close')" title="Close">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="dp-header-meta">
+          Version <strong>v{{ config?.publishedVersion }}</strong>
+          <span v-if="config?.lastPublishedAt"> · {{ formatTime(config.lastPublishedAt) }}</span>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="dp-body">
+        <DetailBody
+          :diffRows="diffRows"
+          :diffCount="diffCount"
+          :logs="logs"
+          :newKey="newKey"
+          :newValue="newValue"
+          @add-key="addKey"
+          @save-inline="saveInline"
+          @cancel-inline="cancelInline"
+          @start-edit="startEdit"
+          @confirm-delete="confirmDelete"
+          @update:newKey="newKey = $event"
+          @update:newValue="newValue = $event"
+        />
+      </div>
+
+      <!-- Footer -->
+      <div class="dp-footer">
+        <button class="dp-footer-cancel" @click="$emit('close')">Cancel</button>
+        <button
+          class="dp-footer-publish"
+          :disabled="!hasDraft"
+          @click="doPublish"
+        >
+          {{ hasDraft ? `Publish (${diffCount} changes)` : 'Up to date' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: el-drawer -->
   <el-drawer
+    v-else
     v-model="visible"
     :title="null"
     direction="rtl"
-    size="600px"
+    size="100%"
     :close-on-click-modal="true"
     @close="$emit('close')"
   >
-    <template #header>
-      <div class="drawer-header">
-        <div class="drawer-title-row">
-          <span class="drawer-service">{{ config?.service }}</span>
-          <span class="drawer-separator">/</span>
-          <span class="drawer-env">{{ config?.env }}</span>
+    <!-- Header -->
+    <div class="dp-header">
+      <div class="dp-header-top">
+        <div class="dp-title-row">
+          <span class="dp-service">{{ config?.service }}</span>
+          <span class="dp-sep">/</span>
+          <span class="dp-env">{{ config?.env }}</span>
           <StatusBadge :hasDraft="hasDraft" />
         </div>
-        <div class="drawer-version">
-          Published Version <strong>v{{ config?.publishedVersion }}</strong>
-          <span v-if="config?.lastPublishedAt" class="drawer-time">
-            · {{ formatTime(config.lastPublishedAt) }}
-          </span>
-        </div>
+      </div>
+      <div class="dp-header-meta">
+        Version <strong>v{{ config?.publishedVersion }}</strong>
+        <span v-if="config?.lastPublishedAt"> · {{ formatTime(config.lastPublishedAt) }}</span>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="dp-body">
+      <DetailBody
+        :diffRows="diffRows"
+        :diffCount="diffCount"
+        :logs="logs"
+        :newKey="newKey"
+        :newValue="newValue"
+        @add-key="addKey"
+        @save-inline="saveInline"
+        @cancel-inline="cancelInline"
+        @start-edit="startEdit"
+        @confirm-delete="confirmDelete"
+        @update:newKey="newKey = $event"
+        @update:newValue="newValue = $event"
+      />
+    </div>
+
+    <template #footer>
+      <div class="drawer-footer">
+        <el-button @click="visible = false">Cancel</el-button>
+        <el-button type="primary" :disabled="!hasDraft" @click="doPublish">
+          {{ hasDraft ? `Publish (${diffCount} changes)` : 'Up to date' }}
+        </el-button>
       </div>
     </template>
+  </el-drawer>
+</template>
 
-    <div class="drawer-body">
+<!-- ============================================================ -->
+<!-- DetailBody — shared content between panel and drawer          -->
+<!-- ============================================================ -->
+<script>
+import { h } from 'vue'
+
+const DetailBody = {
+  name: 'DetailBody',
+  props: {
+    diffRows: Array,
+    diffCount: Number,
+    logs: Array,
+    newKey: String,
+    newValue: String,
+  },
+  emits: ['add-key', 'save-inline', 'cancel-inline', 'start-edit', 'confirm-delete'],
+  setup(props, { emit }) {
+    function onAddKey() { emit('add-key') }
+    function onSaveInline(diff) { emit('save-inline', diff) }
+    function onCancelInline(diff) { emit('cancel-inline', diff) }
+    function onStartEdit(diff) { emit('start-edit', diff) }
+    function onConfirmDelete(key) { emit('confirm-delete', key) }
+    return { onAddKey, onSaveInline, onCancelInline, onStartEdit, onConfirmDelete }
+  },
+  template: `
+    <div>
       <!-- Diff summary -->
-      <div class="diff-summary" v-if="diffCount > 0">
-        <span class="diff-badge">{{ diffCount }} 项变更待发布</span>
+      <div class="dp-summary" v-if="diffCount > 0">
+        <span class="dp-summary-badge">{{ diffCount }} change{{ diffCount > 1 ? 's' : '' }} pending</span>
       </div>
 
-      <!-- Config keys table -->
-      <div class="config-keys-table">
-        <div class="key-header">
-          <span class="kh kh-key">Key</span>
-          <span class="kh kh-pub">Published Value</span>
-          <span class="kh kh-draft">Draft Value</span>
-          <span class="kh kh-action">Action</span>
+      <!-- Diff table -->
+      <div class="dp-table">
+        <div class="dp-th">
+          <span class="dp-th-cell key">Key</span>
+          <span class="dp-th-cell pub">Published</span>
+          <span class="dp-th-cell draft">Draft</span>
+          <span class="dp-th-cell act">Actions</span>
         </div>
 
-        <div v-for="diff in diffRows" :key="diff.key" class="key-row" :class="diff.rowClass">
-          <div class="kd kd-key">
+        <div v-for="diff in diffRows" :key="diff.key" class="dp-row" :class="diff.rowClass">
+          <div class="dp-cell key">
             <code>{{ diff.key }}</code>
           </div>
-          <div class="kd kd-pub">
+          <div class="dp-cell pub">
             <span :class="{ deleted: diff.deleted }">{{ diff.publishedVal || '—' }}</span>
           </div>
-          <div class="kd kd-draft">
+          <div class="dp-cell draft">
             <input
               v-if="diff.editing"
-              ref="editInputs"
               v-model="diff.editValue"
-              class="inline-input"
-              @keydown.enter="saveInline(diff)"
-              @keydown.escape="cancelInline(diff)"
-              @blur="saveInline(diff)"
+              class="dp-inline-input"
+              @keydown.enter="onSaveInline(diff)"
+              @keydown.escape="onCancelInline(diff)"
+              @blur="onSaveInline(diff)"
             />
             <span
               v-else
-              class="editable-value"
+              class="dp-editable"
               :class="{ added: diff.added, deleted: diff.deleted }"
-              @click="startEdit(diff)"
+              @click="onStartEdit(diff)"
             >
               {{ diff.draftVal || '—' }}
             </span>
           </div>
-          <div class="kd kd-action">
-            <button class="action-btn" @click="startEdit(diff)" title="编辑">
+          <div class="dp-cell act">
+            <button class="dp-act-btn" @click="onStartEdit(diff)" title="Edit">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M10 1.5l2.5 2.5L4.5 12H2v-2.5L10 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <button class="action-btn danger" @click="confirmDelete(diff.key)" title="删除">
+            <button class="dp-act-btn danger" @click="onConfirmDelete(diff.key)" title="Delete">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M2 4h10M5 4V2.5h4V4M3 4v7.5h8V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -79,29 +189,29 @@
           </div>
         </div>
 
-        <!-- Add new key row -->
-        <div class="key-row add-row">
-          <div class="kd kd-key">
+        <!-- Add row -->
+        <div class="dp-row add-row">
+          <div class="dp-cell key">
             <input
-              v-model="newKey"
-              class="inline-input"
+              :value="newKey"
+              class="dp-inline-input"
               placeholder="new.key"
-              @keydown.enter="addKey"
+              @keydown.enter="onAddKey()"
+              @input="$emit('update:newKey', $event.target.value)"
             />
           </div>
-          <div class="kd kd-pub">
-            <span class="muted">—</span>
-          </div>
-          <div class="kd kd-draft">
+          <div class="dp-cell pub"><span class="muted">—</span></div>
+          <div class="dp-cell draft">
             <input
-              v-model="newValue"
-              class="inline-input"
+              :value="newValue"
+              class="dp-inline-input"
               placeholder="value"
-              @keydown.enter="addKey"
+              @keydown.enter="onAddKey()"
+              @input="$emit('update:newValue', $event.target.value)"
             />
           </div>
-          <div class="kd kd-action">
-            <button class="action-btn primary" @click="addKey" title="添加" :disabled="!newKey">
+          <div class="dp-cell act">
+            <button class="dp-act-btn primary" @click="onAddKey()" title="Add" :disabled="!newKey">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
@@ -110,36 +220,26 @@
         </div>
       </div>
 
-      <!-- Change log (placeholder) -->
-      <!-- <ChangeLog :logs="logs" /> -->
+      <!-- ChangeLog -->
+      <ChangeLog :logs="logs" />
     </div>
-
-    <!-- Footer actions -->
-    <template #footer>
-      <div class="drawer-footer">
-        <el-button @click="visible = false">取消</el-button>
-        <el-button
-          type="primary"
-          :disabled="!hasDraft"
-          @click="doPublish"
-        >
-          {{ hasDraft ? `发布 (${diffCount} 项变更)` : '已是最新版本' }}
-        </el-button>
-      </div>
-    </template>
-  </el-drawer>
-</template>
+  `
+}
+</script>
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOneConfig, setKey, deleteKey, publishConfig } from '../api/configService.js'
 import StatusBadge from './StatusBadge.vue'
+import ChangeLog from './ChangeLog.vue'
+import { hasDraft as calcHasDraft, countDiff } from '../utils/configDiff.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   service: { type: String, default: '' },
   env: { type: String, default: '' },
+  panel: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'published'])
@@ -153,12 +253,9 @@ const config = ref(null)
 const logs = ref([])
 const newKey = ref('')
 const newValue = ref('')
-const loading = ref(false)
 
-const hasDraft = computed(() => {
-  if (!config.value) return false
-  return JSON.stringify(config.value.draftData) !== JSON.stringify(config.value.publishedData)
-})
+const hasDraft = computed(() => calcHasDraft(config.value))
+const diffCount = computed(() => countDiff(config.value).total)
 
 const diffRows = computed(() => {
   if (!config.value) return []
@@ -193,8 +290,6 @@ const diffRows = computed(() => {
   })
 })
 
-const diffCount = computed(() => diffRows.value.filter(d => d.added || d.modified || d.deleted).length)
-
 function formatTime(t) {
   if (!t) return ''
   const d = new Date(t)
@@ -203,27 +298,28 @@ function formatTime(t) {
 
 async function loadDetail() {
   if (!props.service || !props.env) return
-  loading.value = true
   try {
     const data = await getOneConfig(props.service, props.env)
     config.value = data.config
     logs.value = data.logs || []
   } catch (e) {
-    ElMessage.error('加载配置详情失败')
-  } finally {
-    loading.value = false
+    ElMessage.error('Failed to load config detail')
   }
 }
 
-watch(() => [props.service, props.env, props.modelValue], ([s, e, v]) => {
-  if (v && s && e) loadDetail()
-})
+// Watch for opening — handles both drawer (modelValue) and panel (panel + service/env)
+watch(
+  () => [props.service, props.env, props.modelValue, props.panel],
+  ([s, e, v, p]) => {
+    if (s && e && (v || p)) loadDetail()
+  }
+)
 
 function startEdit(diff) {
   diff.editValue = diff.draftVal || ''
   diff.editing = true
   nextTick(() => {
-    const inputs = document.querySelectorAll('.key-row .kd-draft input')
+    const inputs = document.querySelectorAll('.dp-row .dp-cell.draft input')
     if (inputs.length) inputs[inputs.length - 1]?.focus()
   })
 }
@@ -237,11 +333,10 @@ async function saveInline(diff) {
     await setKey(props.service, props.env, diff.key, val)
     diff.draftVal = val
     diff.originalDraftVal = val
-    // Refresh full config
     await loadDetail()
-    ElMessage.success('已保存')
+    ElMessage.success('Saved')
   } catch (e) {
-    ElMessage.error('保存失败')
+    ElMessage.error('Save failed')
   }
 }
 
@@ -259,17 +354,17 @@ async function addKey() {
     newKey.value = ''
     newValue.value = ''
     await loadDetail()
-    ElMessage.success('已添加')
+    ElMessage.success('Added')
   } catch (e) {
-    ElMessage.error('添加失败')
+    ElMessage.error('Add failed')
   }
 }
 
 async function confirmDelete(key) {
   try {
-    await ElMessageBox.confirm(`确定要删除配置项 "${key}"？`, '确认删除', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(`Delete "${key}"?`, 'Confirm delete', {
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
       type: 'warning',
     })
   } catch {
@@ -278,9 +373,9 @@ async function confirmDelete(key) {
   try {
     await deleteKey(props.service, props.env, key)
     await loadDetail()
-    ElMessage.success('已删除')
+    ElMessage.success('Deleted')
   } catch (e) {
-    ElMessage.error('删除失败')
+    ElMessage.error('Delete failed')
   }
 }
 
@@ -288,199 +383,291 @@ async function doPublish() {
   try {
     await publishConfig(props.service, props.env)
     await loadDetail()
-    ElMessage.success('发布成功')
+    ElMessage.success('Published')
     emit('published')
   } catch (e) {
-    ElMessage.error('发布失败')
+    ElMessage.error('Publish failed')
   }
 }
 </script>
 
 <style scoped>
-.drawer-header {
-  padding-right: 32px;
+/* === Detail Panel (desktop) === */
+.detail-panel {
+  width: 680px;
+  min-width: 680px;
+  height: 100%;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.drawer-title-row {
+.dp-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* === Header === */
+.dp-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dp-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dp-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.drawer-service {
-  font-size: 17px;
+.dp-service {
+  font-size: var(--font-size-lg);
   font-weight: 600;
-  color: var(--color-text);
-  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
-.drawer-separator {
-  color: var(--color-text-placeholder);
+.dp-sep {
+  color: var(--text-placeholder);
   font-weight: 300;
 }
 
-.drawer-env {
-  font-size: 14px;
+.dp-env {
+  font-size: var(--font-size-base);
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
-.drawer-version {
+.dp-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dp-close:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.dp-header-meta {
   margin-top: 6px;
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-placeholder);
 }
 
-.drawer-version strong {
-  color: var(--color-text);
+.dp-header-meta strong {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
-.drawer-time {
-  color: var(--color-text-placeholder);
+/* === Body === */
+.dp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
 }
 
-.drawer-body {
-  padding: 0;
+/* Summary */
+.dp-summary {
+  margin-bottom: 12px;
 }
 
-.diff-summary {
-  padding: 10px 0;
-}
-
-.diff-badge {
+.dp-summary-badge {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: var(--border-radius-tag);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
   background: var(--color-pending-bg);
   color: var(--color-pending);
   font-size: var(--font-size-xs);
   font-weight: 500;
 }
 
-/* Config keys table */
-.config-keys-table {
-  margin-top: 8px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--border-radius-input);
+/* Diff table */
+.dp-table {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
-.key-header {
+.dp-th {
   display: flex;
   align-items: center;
-  height: 34px;
+  height: 30px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border-default);
-  background: var(--bg-page);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
 }
 
-.kh {
+.dp-th-cell {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--text-placeholder);
   font-weight: 500;
 }
 
-.kh-key { width: 28%; }
-.kh-pub { width: 28%; }
-.kh-draft { width: 28%; }
-.kh-action { width: 16%; text-align: right; }
+.key { width: 30%; }
+.pub { width: 28%; }
+.draft { width: 28%; }
+.act { width: 14%; text-align: right; }
 
-.key-row {
+.dp-row {
   display: flex;
   align-items: center;
-  min-height: 40px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border-default);
+  min-height: 38px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.1s;
 }
 
-.key-row:last-child {
-  border-bottom: none;
-}
+.dp-row:last-child { border-bottom: none; }
+.dp-row:hover { background: var(--bg-hover); }
 
-.key-row:hover {
-  background: var(--bg-hover);
-}
+/* Diff highlights */
+.dp-row.diff-added { background: var(--diff-added-bg); border-left: 3px solid var(--diff-added-text); }
+.dp-row.diff-modified { background: var(--diff-modified-bg); border-left: 3px solid var(--diff-modified-text); }
+.dp-row.diff-deleted { background: var(--diff-deleted-bg); border-left: 3px solid var(--diff-deleted-text); }
+.dp-row.add-row { background: var(--bg-subtle); border-left: 3px solid transparent; }
 
-/* Diff highlight rows */
-.key-row.diff-added { background: var(--diff-added-bg); border-left: 3px solid var(--diff-added-text); }
-.key-row.diff-modified { background: var(--diff-modified-bg); border-left: 3px solid var(--diff-modified-text); }
-.key-row.diff-deleted { background: var(--diff-deleted-bg); border-left: 3px solid var(--diff-deleted-text); }
-.key-row.add-row { background: var(--bg-page); border-left: 3px solid transparent; }
-
-.kd {
+.dp-cell {
   font-size: var(--font-size-sm);
-  color: var(--color-text);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
-.kd-key { width: 28%; }
-.kd-pub { width: 28%; }
-.kd-draft { width: 28%; }
-.kd-action { width: 16%; text-align: right; }
-
-.kd-key code {
+.dp-cell code {
   font-size: var(--font-size-xs);
   padding: 2px 6px;
   border-radius: 3px;
-  background: var(--bg-page);
-  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
   word-break: break-all;
 }
 
 .added { color: var(--diff-added-text); }
 .deleted { color: var(--diff-deleted-text); text-decoration: line-through; }
-.muted { color: var(--color-text-placeholder); }
+.muted { color: var(--text-placeholder); }
 
-.editable-value {
+.dp-editable {
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   transition: border-color 0.15s, background 0.15s;
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.editable-value:hover {
+.dp-editable:hover {
   border-color: var(--color-primary);
   background: var(--bg-blue);
 }
 
-.inline-input {
+.dp-inline-input {
   width: 100%;
-  height: 28px;
+  height: 26px;
   padding: 0 6px;
   border: 1px solid var(--color-primary);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
   outline: none;
 }
 
-.action-btn {
+.dp-act-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  background: var(--bg-card);
-  color: var(--color-text-secondary);
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
   margin-left: 4px;
 }
 
-.action-btn:hover { border-color: var(--border-hover); color: var(--color-text); }
-.action-btn.primary:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.action-btn.danger:hover { border-color: var(--diff-deleted-text); color: var(--diff-deleted-text); }
-.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dp-act-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.dp-act-btn.primary:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.dp-act-btn.danger:hover { border-color: var(--diff-deleted-text); color: var(--diff-deleted-text); }
+.dp-act-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Footer */
+/* === Footer (panel mode) === */
+.dp-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dp-footer-cancel {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dp-footer-cancel:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.dp-footer-publish {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dp-footer-publish:hover {
+  background: var(--color-primary-hover);
+}
+
+.dp-footer-publish:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Drawer footer */
 .drawer-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 </style>
