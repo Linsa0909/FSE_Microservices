@@ -1,0 +1,117 @@
+/* === Design Tokens — Linear.app inspired === */
+:root {
+  /* Backgrounds */
+  --bg-page: #FAFAFA;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F5F5F5;
+  --bg-blue: #EFF6FF;
+
+  /* Borders */
+  --border-default: #E5E5E5;
+  --border-hover: #D0D0D0;
+  --border-radius-btn: 6px;
+  --border-radius-input: 8px;
+  --border-radius-tag: 4px;
+  --border-radius-dialog: 12px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Colors */
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-text: rgba(10, 10, 10, 0.85);
+  --color-text-secondary: #6B7280;
+  --color-text-placeholder: #9CA3AF;
+  --color-published: #059669;
+  --color-published-bg: #ECFDF5;
+  --color-pending: #D97706;
+  --color-pending-bg: #FFFBEB;
+
+  /* Diff highlights */
+  --diff-added-bg: #ECFDF5;
+  --diff-added-text: #065F46;
+  --diff-modified-bg: #FFFBEB;
+  --diff-modified-text: #92400E;
+  --diff-deleted-bg: #FEF2F2;
+  --diff-deleted-text: #991B1B;
+
+  /* Typography */
+  --font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+
+  /* Spacing (4px grid) */
+  --row-height: 44px;
+}
+
+/* === Global Reset === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override Element Plus to match our design system */
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-hover);
+  --el-button-hover-border-color: var(--color-primary-hover);
+  border-radius: var(--border-radius-btn) !important;
+  font-weight: 500;
+  font-family: var(--font-family);
+}
+
+.el-button {
+  border-radius: var(--border-radius-btn) !important;
+  font-family: var(--font-family);
+}
+
+.el-input__wrapper {
+  border-radius: var(--border-radius-input) !important;
+  box-shadow: 0 0 0 1px var(--border-default) !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--border-hover) !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--color-primary) !important;
+}
+
+.el-select .el-input__wrapper {
+  border-radius: var(--border-radius-input) !important;
+}
+
+.el-drawer {
+  --el-drawer-bg-color: var(--bg-card);
+}
+
+.el-dialog {
+  border-radius: var(--border-radius-dialog) !important;
+}
+
+.el-message {
+  border-radius: var(--border-radius-btn) !important;
+  font-family: var(--font-family);
+}
+
+.el-tag {
+  border-radius: var(--border-radius-tag) !important;
+  font-family: var(--font-family);
+  font-weight: 500;
+}
