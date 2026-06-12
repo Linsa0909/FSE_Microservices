@@ -52,25 +52,37 @@
     <!-- Help dialog -->
     <el-dialog v-model="showHelp" title="操作指南" width="480px">
       <div class="help-content">
-        <h4>📋 查看配置</h4>
-        <p>左侧边栏选择环境/状态 → 表格显示所有配置组 → <strong>点击任意一行</strong> → 右侧展开详情面板。</p>
+        <h4>Dashboard</h4>
+        <p>页面顶部 Dashboard 展示配置组、待发布、环境数和刷新状态；点击待发布队列可直接打开对应配置组。</p>
 
-        <h4>✏️ 新增配置项</h4>
-        <p>展开详情面板 → 在底部 <code>new.key</code> 输入框填写 Key → <code>value</code> 输入框填写值 → 点击 <strong>+</strong> 按钮或按回车。</p>
+        <h4>配置管理</h4>
+        <p>进入配置管理页 → 选择环境/状态或搜索服务 → 点击配置组行 → 右侧展开 Key-Value 编辑面板。</p>
 
-        <h4>📝 修改配置项</h4>
-        <p>在详情面板右侧 <strong>Draft</strong> 列中 <strong>直接点击值</strong> → 变为可编辑输入框 → 修改后按回车保存。</p>
+        <h4>新建配置组</h4>
+        <p>点击新建配置组 → 填写服务名和环境 → 从配置模板选择常用 Key/Value；需要特殊配置时选择自定义后手动输入。</p>
 
-        <h4>🗑️ 删除配置项</h4>
-        <p>在详情面板点击每行右侧的 <strong>垃圾桶图标</strong> → 确认后删除。</p>
+        <h4>新增配置项</h4>
+        <p>展开详情面板 → 在 <strong>新增配置项</strong> 区域填写 Key 和 Value → 点击添加或按回车。</p>
 
-        <h4>🚀 发布配置</h4>
+        <h4>修改配置项</h4>
+        <p>在详情面板的 <strong>草稿</strong> 列中点击值 → 变为可编辑输入框 → 修改后按回车保存。</p>
+
+        <h4>删除配置项</h4>
+        <p>在详情面板点击每行右侧的 <strong>删除图标</strong> → 确认后删除。</p>
+
+        <h4>发布配置</h4>
         <p>编辑完成后 → 点击底部 <strong>发布</strong> 按钮 → 草稿同步到已发布配置 → 版本号 +1。</p>
         <p class="help-note">未做任何修改时发布按钮灰色禁用；有未发布变更时高亮显示。</p>
 
-        <h4>🔄 自动刷新</h4>
+        <h4>自动刷新</h4>
         <p>页面每 <strong>5 秒</strong>自动拉取后端最新数据，顶部栏显示上次刷新时间。</p>
-        <p>点击右侧 <strong>↻ 刷新按钮</strong> 可手动立即刷新。</p>
+        <p>点击右侧刷新按钮可手动立即刷新。</p>
+
+        <h4>微服务状态</h4>
+        <p>微服务状态页只展示 demo-service 是否在线以及是否成功拉取 PublishedData，不提供配置编辑入口。</p>
+
+        <h4>环境与推送</h4>
+        <p>环境与推送页只展示 service + env 隔离模型以及 push/watch 预留接口，不提供配置组创建入口。</p>
       </div>
       <template #footer>
         <el-button @click="showHelp = false">知道了</el-button>

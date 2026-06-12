@@ -9,7 +9,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ Closed | 7 (bug) + 13 (lint) |
+| ✅ Closed | 11 (bug) + 13 (lint) |
 | ✅ Done | 3 (opt) |
 | 🔧 Fixing | 0 |
 | 👀 Known | 0 |
@@ -28,6 +28,10 @@
 | BUG-006 | ✅ Closed | `start.sh` | 2026-06-12 | `bash start.sh` 报 `go: command not found`，后端和微服务均未启动 | WSL 中 Go 装在了 `/root/go/bin`，不在默认 PATH 中 | start.sh 开头增加 Go PATH 自动探测（`/root/go/bin`、`/usr/local/go/bin` 等 4 个常见路径 + `command -v` 校验 + 报错提示） | `bash start.sh` 找到 Go 并正常启动后端+微服务 | `fix: start.sh Go PATH auto-detect` |
 | BUG-007 | ✅ Closed | `frontend/ConfigDrawer.vue` | 2026-06-12 | 点击表格行 → 右侧抽屉/面板完全空白，无任何按钮，无法操作 | `<script>` (非setup) 块定义的 `DetailBody` 子组件模板中使用了 `<ChangeLog>`，但 `ChangeLog` 只在 `<script setup>` 中 import，子组件不可见，Vue 渲染失败 | 删除非 setup 的 `<script>` 块，把 `DetailBody` 内联到主 `<template>` 中（panel + drawer 各一份） | `npm run build` 成功，点击行后抽屉显示双列对比 + 编辑/新增/删除/发布按钮 + 变更记录 | `fix: BUG-007 ConfigDrawer 重写` |
 | BUG-008 | ✅ Closed | `backend/handler` | 2026-06-12 | `PUT /keys/:key` 设置 `value=""` 返回 400 `{"error":"value is required"}` | `setKeyBody.Value` 有 `binding:"required"` 标签，Gin 将空字符串视为零值拒绝 | 移除 `binding:"required"`，更新 `TestHandler_SetKey_MissingBody` 从 `{}` 改为无效 JSON 确保错误分支仍被覆盖 | `go test ./... -count=1` → 新增 `TestHandler_SetKey_EmptyValue` PASS | `test: 增强 API 并发和边界测试` |
+| BUG-009 | ✅ Closed | `frontend/ConfigDrawer.vue` | 2026-06-12 | 已有键值对点击编辑按钮无法进入输入态 | `diffRows` 是 computed 生成的临时对象数组，`editing/editValue` 写在临时对象上不被 Vue 响应式系统跟踪 | 编辑状态提升为组件级 `editingKey`/`editingValue`，行根据 key 判断是否处于编辑态 | `npm run build` 通过，编辑按钮点击后可靠切换为 input | 待提交 |
+| BUG-010 | ✅ Closed | `frontend/ConfigTable.vue` | 2026-06-12 | 未发布配置组显示 `v` 无版本号，最近发布时间显示 `739778 天前`，diff 文案将"新增 DB"误写为"已删除 → value" | 未发布时 `publishedVersion` 为空字段、`lastPublishedAt` 为 Go 零值时间 (0001-01-01)；`importantChanges` 对新增 key 未正确处理 | `versionLabel()` 空值返回 `—`；`isGoZeroTime()` 检测 Go 零值返回 `—`；`importantChanges` 新增 key 显示"新增"替代"已删除" | `npm run build` 通过 | 待提交 |
+| BUG-011 | ✅ Closed | `frontend/App.vue` | 2026-06-12 | 待发布配置在 Dashboard 中看不到数据入口 | 缺少待发布队列摘要和快捷筛选入口 | Dashboard 增加 `pending-strip` 待发布队列（最多 4 个 chip），"查看待发布"按钮一键切换过滤 | `npm run build` 通过 | 待提交 |
+| BUG-012 | ✅ Closed | `frontend/EnvironmentPanel.vue` | 2026-06-12 | 环境与推送页有新建配置组按钮 | 环境页应只展示隔离模型和预留接口，不应有配置创建入口 | 移除环境页新建配置组按钮，创建入口只留在 Dashboard 和配置管理页 | `npm run build` 通过 | 待提交 |
 
 ---
 
@@ -73,4 +77,4 @@
 | 2026-06-12 | BUG-005: demo-service pullConfig 加重试 (5次/1s), 后端未就绪时降级启动 |
 | 2026-06-12 | BUG-006: start.sh Go PATH auto-detect, WSL 兼容修复 |
 | 2026-06-12 | BUG-007: ConfigDrawer 重写 (去掉 DetailBody 间接层) + OPT-001: 帮助弹窗 |
-| 2026-06-12 | OPT-002: 版本号改为 vX.Y.Z 三位格式 + OPT-003: 前端界面全面汉化 |
+| 2026-06-12 | BUG-009: ConfigDrawer 编辑状态修复 (editingKey/editingValue) + BUG-010: 版本/时间展示修复 + BUG-011: 待发布队列 + BUG-012: 环境页移除创建入口 |

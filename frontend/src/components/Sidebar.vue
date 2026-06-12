@@ -91,7 +91,7 @@ const statuses = computed(() => {
 <style scoped>
 .sidebar {
   width: 220px;
-  min-width: 220px;
+  min-width: 200px;
   height: 100%;
   background: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
