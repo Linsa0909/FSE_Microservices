@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs -r kill -9)",
+      "Bash(curl -s http://localhost:3001/)",
+      "Bash(mkdir -p /root/fse/demo-service/pkg/configclient /root/fse/demo-service/internal/radar /root/fse/demo-service/internal/sensor /root/fse/demo-service/internal/navigation)",
+      "Bash(go build *)",
+      "Bash(pkill -f \"demo-service\")",
+      "Bash(pkill -f \"config-center\")",
+      "Bash(pkill -f \"backend/main\")",
+      "Bash(curl -s -X POST http://localhost:3001/radar/mode -H 'Content-Type: application/json' -d '{\"mode\":\"engage\"}')",
+      "Bash(curl -s -X POST http://localhost:3001/radar/mode -H 'Content-Type: application/json' -d '{\"mode\":\"invalid\"}')",
+      "Bash(curl -s -X POST 'http://localhost:3003/nav/steer?heading=270')",
+      "Bash(curl -s -X POST http://localhost:3002/sensor/calibrate -H 'Content-Type: application/json' -d '{}')",
+      "Bash(curl -s 'http://localhost:3002/sensor/frames?count=5')",
+      "Bash(git commit -m 'feat: 多域仿真平台 — 火控雷达/光电传感器/船舶航海 + ConfigClient SDK *)",
+      "Bash(mktemp -d)",
+      "Bash(GIT_OBJECT_DIRECTORY=$\\(mktemp -d\\) git hash-object -w /dev/null)",
+      "Bash(rm -f .git/index.lock)",
+      "Bash(mktemp)",
+      "Bash(GIT_INDEX_FILE=$\\(mktemp\\) git add -A)",
+      "Bash(cp .git/index /tmp/git-index-backup 2>/dev/null && echo \"backup ok\" || echo \"backup failed \\(ok if index is root-owned\\)\")",
+      "Bash(cp .git/index /tmp/my-index)",
+      "Bash(export GIT_INDEX_FILE=/tmp/my-index)"
+    ],
+    "additionalDirectories": [
+      "/root/fse/demo-service/pkg",
+      "/root/fse/.git"
+    ]
+  }
+}

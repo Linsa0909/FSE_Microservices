@@ -244,3 +244,27 @@ bash tests/smoke_test.sh
 | ConfigClient SDK | 9 | +9 | ✅ PASS |
 | 冒烟测试 | 22 | +11 | ✅ 22/22 PASS |
 | 前端构建 | — | — | ✅ PASS |
+<<<<<<< HEAD
+=======
+
+## 第五轮: 交付收尾 (2026-06-12)
+
+### Prompt 记录
+
+| Prompt | 工具 | 产出 |
+|--------|------|------|
+| "检查是否满足交付物要求" | Read + Bash | 逐条核对 4.1~4.4 |
+| "同网段的可以访问该网址" | Edit | start.sh: `--host 0.0.0.0` + LAN IP 自动探测 |
+| "更新文档并提交" | Write/Edit | README/ARCHITECTURE/AI_PROMPTS 终稿 |
+| "整理 skills 和 prompt 文档" | Write | SKILLS_AND_PROMPTS.md |
+| "git clone 之后直接 bash start.sh 就可以启动" | Edit/Bash | start.sh 加 `npm install` 自动检测 |
+
+### 交付物查漏补缺
+
+| 问题 | 修复 |
+|------|------|
+| `npm run dev` 默认只监听 127.0.0.1 | Vite 加 `--host 0.0.0.0`，同网段可访问 |
+| ServiceStatus 写死 localhost | 改为 `window.location.hostname` 动态拼接 |
+| `start.sh` 未检测 node_modules | 加 `if [ ! -d node_modules ]` 自动 `npm install` |
+| 缺少 Skills 整理文档 | 新建 SKILLS_AND_PROMPTS.md |
+>>>>>>> a77b208 (docs: 交付收尾 — 文档终稿 + start.sh 开箱即用 + 同网段访问)
