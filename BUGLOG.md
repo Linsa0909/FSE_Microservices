@@ -9,7 +9,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ Closed | 5 (bug) + 13 (lint) |
+| ✅ Closed | 6 (bug) + 13 (lint) |
 | 🔧 Fixing | 0 |
 | 👀 Known | 0 |
 
@@ -24,6 +24,7 @@
 | BUG-003 | ✅ Closed | `frontend/ConfigTable.vue` | 2026-06-12 | `npm run build` 报 `ILLEGAL_REASSIGNMENT` | `preview` 声明为 `const` 后 `preview += '...'` | 改为 `let preview` | `npm run build` 成功 | `feat: init frontend` |
 | BUG-004 | ✅ Closed | `infra/apt` | 2026-06-12 | `apt-get install golang-go` 失败 | 容器文件系统部分只读 | 手动下载 Go `go1.22.5.linux-amd64.tar.gz` 到 `/root/go` | `go version` → `go1.22.5` | `feat: init backend` |
 | BUG-005 | ✅ Closed | `demo-service/main.go` | 2026-06-12 | 后端未启动时 `go run .` 直接 `log.Fatal` 退出 | pullConfig 无重试机制，一次失败就调用 `log.Fatalf` | pullConfig 加重试循环 (5次, 间隔1s)，main() 中 `log.Fatalf` 改为 `log.Printf` 降级启动 | 后端不启动时 demo 重试 5 次后自动以默认端口 3000 启动 | `fix: demo-service pullConfig 加重试` |
+| BUG-006 | ✅ Closed | `start.sh` | 2026-06-12 | `bash start.sh` 报 `go: command not found`，后端和微服务均未启动 | WSL 中 Go 装在了 `/root/go/bin`，不在默认 PATH 中 | start.sh 开头增加 Go PATH 自动探测（`/root/go/bin`、`/usr/local/go/bin` 等 4 个常见路径 + `command -v` 校验 + 报错提示） | `bash start.sh` 找到 Go 并正常启动后端+微服务 | `fix: start.sh Go PATH auto-detect` |
 
 ---
 ## Lint 记录
@@ -58,3 +59,4 @@
 | 2026-06-12 | TDD 集成测试 + 冒烟测试: 22+17 PASS, 0 新 bug |
 | 2026-06-12 | Lint 首次检查 (revive+go vet+gofmt): 13 issues 全部修复, 代码 CLEAN |
 | 2026-06-12 | BUG-005: demo-service pullConfig 加重试 (5次/1s), 后端未就绪时降级启动 |
+| 2026-06-12 | BUG-006: start.sh Go PATH auto-detect, WSL 兼容修复 |

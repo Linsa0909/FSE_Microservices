@@ -5,6 +5,18 @@ set -e
 #  分布式配置中心 — 一键启动脚本
 # =============================================
 
+# Ensure Go is on PATH (common locations)
+for d in /root/go/bin /usr/local/go/bin /usr/lib/go/bin /snap/go/current/bin; do
+    if [ -d "$d" ]; then export PATH=$PATH:$d; fi
+done
+
+# Fallback: try to find go
+command -v go >/dev/null 2>&1 || {
+    echo "❌ go: command not found. Please install Go first."
+    echo "   https://go.dev/dl/"
+    exit 1
+}
+
 echo "========================================"
 echo "  分布式配置中心 (Config Center)"
 echo "  启动中..."

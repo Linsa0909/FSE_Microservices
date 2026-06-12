@@ -37,10 +37,10 @@ info "=== Step 1: 编译 ==="
 
 cd "$REPO_DIR/backend"
 export PATH=${PATH}:/root/go/bin
-GOTOOLCHAIN=local go build -o config-center . && pass "backend build" || fail "backend build"
+GOTOOLCHAIN=local go build -buildvcs=false -o config-center . && pass "backend build" || fail "backend build"
 
 cd "$REPO_DIR/demo-service"
-GOTOOLCHAIN=local go build -o demo-service . && pass "demo-service build" || fail "demo-service build"
+GOTOOLCHAIN=local go build -buildvcs=false -o demo-service . && pass "demo-service build" || fail "demo-service build"
 
 if [ $FAIL -gt 0 ]; then
     fail "编译失败，中止"
