@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // ConfigClient 配置客户端 SDK 雏形
@@ -96,18 +98,20 @@ func main() {
 		port = "3000"
 	}
 
-	// 启动 HTTP 服务
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	// 使用 Gin 框架启动 HTTP 服务
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
 			"service": "order-service",
 			"config":  client.GetConfig(),
 		})
 	})
 
 	log.Printf("[demo-service] ✅ 服务启动于 :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := r.Run(":" + port); err != nil {
 		log.Fatal(err)
 	}
 }
