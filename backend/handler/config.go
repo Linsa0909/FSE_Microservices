@@ -1,3 +1,5 @@
+// Package handler implements HTTP handlers for the config center REST API.
+// It provides 8 endpoints: list, get, set, delete, publish, get-published, push (reserved), and watch (reserved).
 package handler
 
 import (
@@ -21,11 +23,11 @@ func New(s *store.ConfigStore) *Handler {
 
 // --- 请求体 ---
 
-type SetKeyBody struct {
+type setKeyBody struct {
 	Value string `json:"value" binding:"required"`
 }
 
-// --- 1. GET /api/configs — 所有服务配置列表 ---
+// ListAll handles GET /api/configs — returns all config groups.
 func (h *Handler) ListAll(c *gin.Context) {
 	h.Store.RLock()
 	defer h.Store.RUnlock()
@@ -37,7 +39,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"configs": result})
 }
 
-// --- 2. GET /api/configs/:service/:env — 单个 ConfigGroup + ChangeLog ---
+// GetOne handles GET /api/configs/:service/:env — returns a single ConfigGroup with ChangeLog.
 func (h *Handler) GetOne(c *gin.Context) {
 	h.Store.RLock()
 	defer h.Store.RUnlock()
@@ -66,9 +68,9 @@ func (h *Handler) GetOne(c *gin.Context) {
 	})
 }
 
-// --- 3. PUT /api/configs/:service/:env/keys/:key — 新增/修改配置项 ---
+// SetKey handles PUT /api/configs/:service/:env/keys/:key — adds or updates a key in DraftData.
 func (h *Handler) SetKey(c *gin.Context) {
-	var body SetKeyBody
+	var body setKeyBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "value is required"})
 		return
@@ -85,7 +87,7 @@ func (h *Handler) SetKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
 }
 
-// --- 4. DELETE /api/configs/:service/:env/keys/:key — 删除配置项 ---
+// DeleteKey handles DELETE /api/configs/:service/:env/keys/:key — removes a key from DraftData.
 func (h *Handler) DeleteKey(c *gin.Context) {
 	h.Store.Lock()
 	defer h.Store.Unlock()
@@ -98,7 +100,7 @@ func (h *Handler) DeleteKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
 }
 
-// --- 5. POST /api/configs/:service/:env/publish — 发布配置 ---
+// Publish handles POST /api/configs/:service/:env/publish — deep-copies DraftData to PublishedData.
 func (h *Handler) Publish(c *gin.Context) {
 	h.Store.Lock()
 	defer h.Store.Unlock()
@@ -110,7 +112,7 @@ func (h *Handler) Publish(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "published"})
 }
 
-// --- 6. GET /api/configs/:service/:env/published — 仅返回 PublishedData（微服务用） ---
+// GetPublished handles GET /api/configs/:service/:env/published — returns only PublishedData for microservice consumption.
 func (h *Handler) GetPublished(c *gin.Context) {
 	h.Store.RLock()
 	defer h.Store.RUnlock()
@@ -125,12 +127,12 @@ func (h *Handler) GetPublished(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"config": g.PublishedData})
 }
 
-// --- 7. POST /api/configs/:service/:env/push — 配置推送预留接口 ---
+// Push handles POST /api/configs/:service/:env/push — reserved endpoint for future dynamic config push.
 func (h *Handler) Push(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "push endpoint reserved for future dynamic push"})
 }
 
-// --- 8. GET /api/configs/watch — SSE 推送预留端点 ---
+// Watch handles GET /api/configs/watch — reserved SSE endpoint for future dynamic config push.
 func (h *Handler) Watch(c *gin.Context) {
 	accept := c.GetHeader("Accept")
 	if strings.Contains(accept, "text/event-stream") {

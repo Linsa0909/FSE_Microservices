@@ -1,3 +1,5 @@
+// Package main is the entry point for the config center backend.
+// It initializes the in-memory config store, sets up seed data, registers all HTTP routes, and starts the Gin server on :8080.
 package main
 
 import (

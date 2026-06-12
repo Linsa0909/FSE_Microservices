@@ -1,0 +1,60 @@
+# golangci-lint configuration for config-center backend
+# Usage: golangci-lint run ./...
+#
+# This file is pre-configured but currently not actively used due to
+# container network constraints. The same rules are enforced via:
+#   revive + go vet + gofmt + staticcheck
+# See LINTLOG.md for the active toolchain.
+
+run:
+  timeout: 5m
+  tests: true
+  go: "1.22"
+
+linters:
+  enable:
+    - revive      # style + comments
+    - govet       # correctness
+    - staticcheck # advanced static analysis
+    - errcheck    # unchecked errors
+    - gosec       # security
+    - ineffassign # unused assignments
+    - unused      # dead code
+    - misspell    # spelling
+    - gofmt       # formatting
+    - goimports   # import ordering
+    - unconvert   # unnecessary conversions
+    - prealloc    # slice preallocation
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: indent-error-flow
+
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # allow unchecked errors (handled by errcheck separately)
+
+issues:
+  exclude-dirs:
+    - vendor
+    - node_modules
+  max-issues-per-linter: 50
+  max-same-issues: 10

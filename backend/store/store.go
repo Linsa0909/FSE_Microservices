@@ -1,3 +1,5 @@
+// Package store provides the in-memory data model and thread-safe storage for the config center.
+// It defines ConfigGroup (a service+env configuration), ChangeRecord (audit log), and ConfigStore (the main repository).
 package store
 
 import (
@@ -20,7 +22,7 @@ type ConfigGroup struct {
 // ChangeRecord 变更记录
 type ChangeRecord struct {
 	Time     time.Time `json:"time"`
-	Action   string    `json:"action"`   // "新增" / "修改" / "删除" / "发布"
+	Action   string    `json:"action"` // "新增" / "修改" / "删除" / "发布"
 	Key      string    `json:"key"`
 	Version  int       `json:"version"`
 	Operator string    `json:"operator"` // MVP 固定 "admin"

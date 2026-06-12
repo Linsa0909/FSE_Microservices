@@ -9,7 +9,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ Closed | 4 |
+| ✅ Closed | 4 (bug) + 13 (lint) |
 | 🔧 Fixing | 0 |
 | 👀 Known | 0 |
 
@@ -23,6 +23,18 @@
 | BUG-002 | ✅ Closed | `frontend/TopBar.vue` | 2026-06-12 | `npm run build` 报 `Invalid end tag` | `<button>` 标签后用 `</span>` 闭合 | 改为 `</button>` | `npm run build` 成功 | `feat: init frontend` |
 | BUG-003 | ✅ Closed | `frontend/ConfigTable.vue` | 2026-06-12 | `npm run build` 报 `ILLEGAL_REASSIGNMENT` | `preview` 声明为 `const` 后 `preview += '...'` | 改为 `let preview` | `npm run build` 成功 | `feat: init frontend` |
 | BUG-004 | ✅ Closed | `infra/apt` | 2026-06-12 | `apt-get install golang-go` 失败 | 容器文件系统部分只读 | 手动下载 Go `go1.22.5.linux-amd64.tar.gz` 到 `/root/go` | `go version` → `go1.22.5` | `feat: init backend` |
+
+---
+## Lint 记录
+
+| ID | 状态 | 严重度 | 文件 | 发现 | 问题 | 修复 | 验证 | Commit |
+|----|------|--------|------|------|------|------|------|--------|
+| LINT-001 | ✅ Closed | ⚠️ | `store/store.go` | 2026-06-12 | 缺少 package comment | 添加 package 文档注释 | `revive` 0 issues | `lint: fix 12 revive + 1 gofmt` |
+| LINT-002 | ✅ Closed | ⚠️ | `handler/config.go` | 2026-06-12 | 缺少 package comment | 添加 package 文档注释 | `revive` 0 issues | `lint: fix 12 revive + 1 gofmt` |
+| LINT-003 | ✅ Closed | ⚠️ | `main.go` | 2026-06-12 | 缺少 package comment | 添加 package 文档注释 | `revive` 0 issues | `lint: fix 12 revive + 1 gofmt` |
+| LINT-004 | ✅ Closed | ⚠️ | `handler/config.go` | 2026-06-12 | 导出类型 `SetKeyBody` 缺少注释 | 改为未导出 `setKeyBody` | `revive` 0 issues | `lint: fix 12 revive + 1 gofmt` |
+| LINT-005~012 | ✅ Closed | ⚠️ | `handler/config.go` | 2026-06-12 | 8 个导出方法注释格式不符合 Go 规范 | 全部改为 `// MethodName handles ...` 格式 | `revive` 0 issues | `lint: fix 12 revive + 1 gofmt` |
+| FMT-001 | ✅ Closed | ℹ️ | `handler/handler_test.go` | 2026-06-12 | gofmt 缩进不一致 | `gofmt -w .` | 0 diffs | `lint: fix 12 revive + 1 gofmt` |
 
 ---
 ## 测试记录
@@ -43,3 +55,4 @@
 |------|------|
 | 2026-06-12 | 创建 BUGLOG.md，迁移 AI_PROMPTS.md 中 4 个已修复 bug |
 | 2026-06-12 | TDD 集成测试 + 冒烟测试: 22+17 PASS, 0 新 bug |
+| 2026-06-12 | Lint 首次检查 (revive+go vet+gofmt): 13 issues 全部修复, 代码 CLEAN |

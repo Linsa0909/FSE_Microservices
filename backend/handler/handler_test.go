@@ -92,7 +92,7 @@ func TestHandler_GetOne_Existing(t *testing.T) {
 	}
 
 	var body struct {
-		Config store.ConfigGroup   `json:"config"`
+		Config store.ConfigGroup    `json:"config"`
 		Logs   []store.ChangeRecord `json:"logs"`
 	}
 	json.Unmarshal(w.Body.Bytes(), &body)
