@@ -9,7 +9,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ Closed | 6 (bug) + 13 (lint) |
+| ✅ Closed | 7 (bug) + 13 (lint) |
 | 🔧 Fixing | 0 |
 | 👀 Known | 0 |
 
@@ -25,8 +25,16 @@
 | BUG-004 | ✅ Closed | `infra/apt` | 2026-06-12 | `apt-get install golang-go` 失败 | 容器文件系统部分只读 | 手动下载 Go `go1.22.5.linux-amd64.tar.gz` 到 `/root/go` | `go version` → `go1.22.5` | `feat: init backend` |
 | BUG-005 | ✅ Closed | `demo-service/main.go` | 2026-06-12 | 后端未启动时 `go run .` 直接 `log.Fatal` 退出 | pullConfig 无重试机制，一次失败就调用 `log.Fatalf` | pullConfig 加重试循环 (5次, 间隔1s)，main() 中 `log.Fatalf` 改为 `log.Printf` 降级启动 | 后端不启动时 demo 重试 5 次后自动以默认端口 3000 启动 | `fix: demo-service pullConfig 加重试` |
 | BUG-006 | ✅ Closed | `start.sh` | 2026-06-12 | `bash start.sh` 报 `go: command not found`，后端和微服务均未启动 | WSL 中 Go 装在了 `/root/go/bin`，不在默认 PATH 中 | start.sh 开头增加 Go PATH 自动探测（`/root/go/bin`、`/usr/local/go/bin` 等 4 个常见路径 + `command -v` 校验 + 报错提示） | `bash start.sh` 找到 Go 并正常启动后端+微服务 | `fix: start.sh Go PATH auto-detect` |
+| BUG-007 | ✅ Closed | `frontend/ConfigDrawer.vue` | 2026-06-12 | 点击表格行 → 右侧抽屉/面板完全空白，无任何按钮，无法操作 | `<script>` (非setup) 块定义的 `DetailBody` 子组件模板中使用了 `<ChangeLog>`，但 `ChangeLog` 只在 `<script setup>` 中 import，子组件不可见，Vue 渲染失败 | 删除非 setup 的 `<script>` 块，把 `DetailBody` 内联到主 `<template>` 中（panel + drawer 各一份） | `npm run build` 成功，点击行后抽屉显示双列对比 + 编辑/新增/删除/发布按钮 + 变更记录 | `fix: BUG-007 ConfigDrawer 重写` |
 
 ---
+
+## 优化记录
+
+| ID | 状态 | 模块 | 发现 | 优化内容 | 效果 | 验证 | Commit |
+|----|------|------|------|---------|------|------|--------|
+| OPT-001 | ✅ Done | `frontend/TopBar.vue` | 2026-06-12 | 缺少操作帮助入口 | 顶部栏右侧新增 ? Help 按钮 + el-dialog 操作指南 (6章节) | `npm run build` OK | `fix: BUG-007 + OPT-001` |
+
 ## Lint 记录
 
 | ID | 状态 | 严重度 | 文件 | 发现 | 问题 | 修复 | 验证 | Commit |
@@ -60,3 +68,4 @@
 | 2026-06-12 | Lint 首次检查 (revive+go vet+gofmt): 13 issues 全部修复, 代码 CLEAN |
 | 2026-06-12 | BUG-005: demo-service pullConfig 加重试 (5次/1s), 后端未就绪时降级启动 |
 | 2026-06-12 | BUG-006: start.sh Go PATH auto-detect, WSL 兼容修复 |
+| 2026-06-12 | BUG-007: ConfigDrawer 重写 (去掉 DetailBody 间接层) + OPT-001: 帮助弹窗 |
